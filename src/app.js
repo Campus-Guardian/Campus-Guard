@@ -10,6 +10,7 @@ const alertRoutes = require('./routes/alertRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
 const zoneRoutes = require('./routes/zoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const btuRoutes = require('./routes/btuRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/btu', btuRoutes);
 
 // Root redirect
 app.get('/', (req, res) => {

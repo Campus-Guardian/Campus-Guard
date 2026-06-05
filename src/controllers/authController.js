@@ -2,28 +2,34 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 
-// Kullanıcı kaydı
+// Kullanıcı kaydı (BTU doğrulaması sonrası)
 exports.register = async (req, res) => {
   try {
-    const { email, password, full_name } = req.body;
+    const { student_id, password, full_name } = req.body;
 
-    // Email kontrolü
+    // Öğrenci numarası kontrolü
     const { data: existing } = await supabase
       .from('users')
       .select('id')
-      .eq('email', email)
+      .eq('student_id', student_id)
       .single();
 
     if (existing) {
-      return res.status(409).json({ error: 'Bu email zaten kayıtlı' });
+      return res.status(409).json({ error: 'Bu öğrenci numarası zaten kayıtlı' });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
 
     const { data: user, error } = await supabase
       .from('users')
-      .insert({ email, password_hash, full_name, role: 'user' })
-      .select('id, email, full_name, role')
+      .insert({
+        student_id,
+        password_hash,
+        full_name: full_name || student_id,
+        email: `${student_id}@btu.edu.tr`,
+        role: 'user'
+      })
+      .select('id, student_id, email, full_name, role')
       .single();
 
     if (error) throw error;
@@ -39,24 +45,24 @@ exports.register = async (req, res) => {
   }
 };
 
-// Giriş
+// Giriş (öğrenci numarası + şifre)
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { student_id, password } = req.body;
 
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('student_id', student_id)
       .single();
 
     if (error || !user) {
-      return res.status(401).json({ error: 'Email veya şifre hatalı' });
+      return res.status(401).json({ error: 'Öğrenci numarası veya şifre hatalı' });
     }
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
-      return res.status(401).json({ error: 'Email veya şifre hatalı' });
+      return res.status(401).json({ error: 'Öğrenci numarası veya şifre hatalı' });
     }
 
     if (!user.is_active) {
@@ -69,7 +75,7 @@ exports.login = async (req, res) => {
 
     res.json({
       message: 'Giriş başarılı',
-      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
+      user: { id: user.id, student_id: user.student_id, email: user.email, full_name: user.full_name, role: user.role },
       token
     });
   } catch (err) {

@@ -11,35 +11,80 @@
   <link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
-  <!-- Login Screen -->
+
+  <!-- ========== LOGIN SCREEN (Varsayılan) ========== -->
   <div id="loginScreen" class="screen active">
     <div class="login-card">
       <div class="logo">🛡️</div>
       <h1>CampusGuard</h1>
       <p>Mobil Sensör Uygulaması</p>
       <div id="mobileAlert" class="mobile-alert"></div>
-      <div class="form-group"><label>Email</label><input type="email" id="mEmail" placeholder="ornek@btu.edu.tr"></div>
-      <div class="form-group"><label>Şifre</label><input type="password" id="mPassword" placeholder="••••••"></div>
+      <div class="form-group">
+        <label>Öğrenci Numarası</label>
+        <input type="text" id="mStudentId" placeholder="Öğrenci numaranızı girin" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>Şifre</label>
+        <input type="password" id="mPassword" placeholder="••••••">
+      </div>
       <button class="btn-mobile" onclick="mobileLogin()">Giriş Yap</button>
       <button class="btn-mobile btn-outline-m" onclick="showRegScreen()">Kayıt Ol</button>
     </div>
   </div>
 
-  <!-- Register Screen -->
+  <!-- ========== REGISTER SCREEN - Adım 1: BTU Doğrulama ========== -->
   <div id="registerScreen" class="screen">
     <div class="login-card">
-      <div class="logo">🛡️</div>
+      <div class="logo">🎓</div>
       <h1>Kayıt Ol</h1>
+      <p>BTU öğrenci numaranızı doğrulayın</p>
       <div id="regAlert" class="mobile-alert"></div>
-      <div class="form-group"><label>Ad Soyad</label><input type="text" id="mRegName"></div>
-      <div class="form-group"><label>Email</label><input type="email" id="mRegEmail"></div>
-      <div class="form-group"><label>Şifre</label><input type="password" id="mRegPass" minlength="6"></div>
-      <button class="btn-mobile" onclick="mobileRegister()">Kayıt Ol</button>
-      <button class="btn-mobile btn-outline-m" onclick="showLoginScreen()">Giriş'e Dön</button>
+
+      <div id="regStep1">
+        <div class="form-group">
+          <label>Öğrenci Numarası</label>
+          <input type="text" id="mRegStudentId" placeholder="Öğrenci numaranız" inputmode="numeric">
+        </div>
+
+        <div class="captcha-section">
+          <label>Güvenlik Kodu</label>
+          <div class="captcha-row">
+            <img id="captchaImg" class="captcha-image" src="" alt="CAPTCHA yükleniyor...">
+            <button type="button" class="btn-captcha-refresh" onclick="refreshCaptcha()" title="Yenile">🔄</button>
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <input type="text" id="mCaptchaInput" placeholder="Yukarıdaki kodu girin" autocomplete="off">
+          </div>
+        </div>
+
+        <button class="btn-mobile btn-verify" onclick="verifyStudent()">
+          <span id="verifyBtnText">Doğrula</span>
+          <span id="verifySpinner" class="spinner" style="display:none;"></span>
+        </button>
+      </div>
+
+      <!-- Adım 2: Şifre Belirleme (gizli) -->
+      <div id="regStep2" style="display: none;">
+        <div class="verify-success">
+          <span class="verify-icon">✅</span>
+          <span>Öğrenci numarası doğrulandı!</span>
+        </div>
+        <div class="form-group">
+          <label>Şifre Belirleyin</label>
+          <input type="password" id="mRegPassword" placeholder="En az 6 karakter" minlength="6">
+        </div>
+        <div class="form-group">
+          <label>Şifre Tekrar</label>
+          <input type="password" id="mRegPasswordConfirm" placeholder="Şifrenizi tekrar girin">
+        </div>
+        <button class="btn-mobile" onclick="completeRegistration()">Kaydı Tamamla</button>
+      </div>
+
+      <button class="btn-mobile btn-outline-m" onclick="showLoginScreen()" style="margin-top: 8px;">Giriş'e Dön</button>
     </div>
   </div>
 
-  <!-- Main App Screen -->
+  <!-- ========== MAIN APP SCREEN ========== -->
   <div id="appScreen" class="screen">
     <!-- Header -->
     <div class="mobile-header">
