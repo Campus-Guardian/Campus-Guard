@@ -13,13 +13,13 @@ const validate = (schema) => {
 
 // Auth şemaları
 const registerSchema = Joi.object({
-  email: Joi.string().email().required().messages({ 'string.email': 'Geçerli bir email adresi girin' }),
+  student_id: Joi.string().min(1).required().messages({ 'string.empty': 'Öğrenci numarası gerekli' }),
   password: Joi.string().min(6).required().messages({ 'string.min': 'Şifre en az 6 karakter olmalı' }),
-  full_name: Joi.string().min(2).max(255).required()
+  full_name: Joi.string().min(2).max(255).optional().allow('', null)
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  student_id: Joi.string().min(1).required(),
   password: Joi.string().required()
 });
 
