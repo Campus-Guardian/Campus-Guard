@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0f1e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="CampusGuard Mobil Sensör Uygulaması">
+  <title>CampusGuard Mobil</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-card">
+      <div class="logo">🛡️</div>
+      <h1>CampusGuard</h1>
+      <p>Mobil Sensör Uygulaması</p>
+      <div id="mobileAlert" class="mobile-alert"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="mEmail" placeholder="ornek@btu.edu.tr"></div>
+      <div class="form-group"><label>Şifre</label><input type="password" id="mPassword" placeholder="••••••"></div>
+      <button class="btn-mobile" onclick="mobileLogin()">Giriş Yap</button>
+      <button class="btn-mobile btn-outline-m" onclick="showRegScreen()">Kayıt Ol</button>
+    </div>
+  </div>
+
+  <!-- Register Screen -->
+  <div id="registerScreen" class="screen">
+    <div class="login-card">
+      <div class="logo">🛡️</div>
+      <h1>Kayıt Ol</h1>
+      <div id="regAlert" class="mobile-alert"></div>
+      <div class="form-group"><label>Ad Soyad</label><input type="text" id="mRegName"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="mRegEmail"></div>
+      <div class="form-group"><label>Şifre</label><input type="password" id="mRegPass" minlength="6"></div>
+      <button class="btn-mobile" onclick="mobileRegister()">Kayıt Ol</button>
+      <button class="btn-mobile btn-outline-m" onclick="showLoginScreen()">Giriş'e Dön</button>
+    </div>
+  </div>
+
+  <!-- Main App Screen -->
+  <div id="appScreen" class="screen">
+    <!-- Header -->
+    <div class="mobile-header">
+      <span>🛡️ CampusGuard</span>
+      <button class="icon-btn" onclick="mobileLogout()">⏻</button>
+    </div>
+
+    <!-- Status Card -->
+    <div class="status-card" id="statusCard">
+      <div class="status-indicator" id="statusDot"></div>
+      <div>
+        <div class="status-text" id="statusText">Bağlanıyor...</div>
+        <div class="status-sub" id="statusSub">Sensörler başlatılıyor</div>
+      </div>
+    </div>
+
+    <!-- Sensor Data Cards -->
+    <div class="sensor-grid">
+      <div class="sensor-card">
+        <div class="sensor-icon">📍</div>
+        <div class="sensor-label">Konum</div>
+        <div class="sensor-value" id="sLocation">Bekleniyor...</div>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-icon">🔊</div>
+        <div class="sensor-label">Gürültü</div>
+        <div class="sensor-value" id="sNoise">-- dB</div>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-icon">📐</div>
+        <div class="sensor-label">İvme</div>
+        <div class="sensor-value" id="sAccel">-- m/s²</div>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-icon">🏃</div>
+        <div class="sensor-label">Hız</div>
+        <div class="sensor-value" id="sSpeed">-- km/h</div>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-icon">🔋</div>
+        <div class="sensor-label">Batarya</div>
+        <div class="sensor-value" id="sBattery">--%</div>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-icon">📡</div>
+        <div class="sensor-label">Veri Gönderim</div>
+        <div class="sensor-value" id="sDataCount">0</div>
+      </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="controls">
+      <button class="btn-mobile btn-start" id="btnToggle" onclick="toggleSensors()">▶ Sensörleri Başlat</button>
+    </div>
+
+    <!-- Device Info -->
+    <div class="device-info">
+      <div>Cihaz: <strong id="deviceLabel">-</strong></div>
+      <div>ID: <code id="deviceIdLabel">-</code></div>
+    </div>
+
+    <!-- Setup Device Modal -->
+    <div class="modal-bg" id="setupModal">
+      <div class="modal-card">
+        <h3>Cihaz Kaydet</h3>
+        <p>Veri göndermek için cihaz kaydı gerekli</p>
+        <div class="form-group"><label>Cihaz Adı</label><input type="text" id="setupDeviceName" placeholder="Telefonumun adı"></div>
+        <button class="btn-mobile" onclick="setupDevice()">Kaydet ve Başla</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/sensors.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

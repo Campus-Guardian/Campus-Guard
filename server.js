@@ -1,30 +1,25 @@
-const express = require('express');
-const app = express();
+require('dotenv').config();
+const http = require('http');
+const app = require('./src/app');
+const { initSocket } = require('./src/socket/socketHandler');
 
-// Parse JSON bodies
-app.use(express.json());
-
-// Basic route to check if server is running
-app.get('/', (req, res) => {
-    res.json({
-        message: 'Backend is successfully running!',
-        status: 'ok',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// A simple test route for POST requests
-app.post('/test', (req, res) => {
-    res.json({
-        message: 'Received a POST request successfully!',
-        dataReceived: req.body,
-        status: 'ok'
-    });
-});
-
-// Render dynamically assigns a port, so we must use process.env.PORT
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initSocket(server);
+
+server.listen(PORT, () => {
+  console.log(`
+  ╔══════════════════════════════════════════╗
+  ║     🛡️  CampusGuard Server Running      ║
+  ║     Port: ${PORT}                           ║
+  ║     Environment: ${process.env.NODE_ENV || 'development'}            ║
+  ╚══════════════════════════════════════════╝
+  
+  Dashboard: http://localhost:${PORT}/dashboard
+  Mobile:    http://localhost:${PORT}/mobile
+  API:       http://localhost:${PORT}/api
+  `);
 });

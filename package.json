@@ -1,13 +1,26 @@
 {
-  "name": "render-test-backend",
+  "name": "campusguard",
   "version": "1.0.0",
-  "description": "A simple Express backend for testing on Render",
+  "description": "Kampüs Güvenliği ve Çevresel Gözlem Platformu - BTÜ Mimar Sinan Yerleşkesi",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.7.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

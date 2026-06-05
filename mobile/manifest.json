@@ -1,0 +1,11 @@
+{
+  "name": "CampusGuard Mobil",
+  "short_name": "CampusGuard",
+  "description": "Kampüs Güvenliği Mobil Sensör Uygulaması",
+  "start_url": "/mobile/",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "orientation": "portrait",
+  "icons": []
+}

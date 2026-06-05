@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusGuard - Alarmlar</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand"><span class="shield">🛡️</span><h2>CampusGuard</h2></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item"><span class="icon">📊</span> Dashboard</a>
+        <a href="alerts.html" class="nav-item active"><span class="icon">🔔</span> Alarmlar</a>
+        <a href="devices.html" class="nav-item"><span class="icon">📱</span> Cihazlar</a>
+        <a href="zones.html" class="nav-item"><span class="icon">🗺️</span> Bölgeler</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div><div class="user-name" id="userName">Admin</div><div class="user-role" id="userRole">admin</div></div>
+        </div>
+        <button class="btn btn-outline btn-sm btn-full" onclick="logout()" style="margin-top:8px">Çıkış Yap</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header">
+        <h1>🔔 Alarm Yönetimi</h1>
+        <div class="header-actions">
+          <div class="filters">
+            <select id="filterType" onchange="loadAlerts()">
+              <option value="">Tüm Tipler</option>
+              <option value="noise_warning">Gürültü (Uyarı)</option>
+              <option value="noise_critical">Gürültü (Kritik)</option>
+              <option value="crowd_warning">Kalabalık (Uyarı)</option>
+              <option value="crowd_critical">Kalabalık (Kritik)</option>
+              <option value="restricted_zone">Kısıtlı Bölge</option>
+              <option value="danger_zone">Tehlikeli Bölge</option>
+              <option value="abnormal_motion">Anormal Hareket</option>
+              <option value="speed_violation">Hız İhlali</option>
+            </select>
+            <select id="filterSeverity" onchange="loadAlerts()">
+              <option value="">Tüm Seviyeler</option>
+              <option value="critical">Kritik</option>
+              <option value="high">Yüksek</option>
+              <option value="medium">Orta</option>
+              <option value="low">Düşük</option>
+            </select>
+            <select id="filterResolved" onchange="loadAlerts()">
+              <option value="false">Aktif</option>
+              <option value="true">Çözülmüş</option>
+              <option value="">Tümü</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- Alert Stats -->
+        <div class="stats-grid fade-in">
+          <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-value" id="alertActive">0</div><div class="stat-label">Aktif Alarm</div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value" id="alertResolved">0</div><div class="stat-label">Çözülmüş</div></div>
+          <div class="stat-card amber"><div class="stat-icon">📊</div><div class="stat-value" id="alertTotal">0</div><div class="stat-label">Toplam</div></div>
+        </div>
+
+        <!-- Alert List -->
+        <div class="card">
+          <div class="card-header"><h3>Alarm Listesi</h3></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Seviye</th>
+                    <th>Tip</th>
+                    <th>Mesaj</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="alertTableBody">
+                  <tr><td colspan="6" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/socket.js"></script>
+  <script src="js/alerts.js"></script>
+</body>
+</html>
