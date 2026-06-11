@@ -105,11 +105,9 @@ async function loadMapData() {
           const alertBadge = alerts.length > 0
             ? `<br><span style="color:${markerColor};font-weight:bold">⚠️ ${alerts.length} aktif alarm</span>`
             : '';
-          const studentName = dev.user_name ? `<br>Adı: ${dev.user_name}` : '';
 
           marker.bindPopup(
             `<b>Öğrenci No: ${dev.student_id || dev.device_name}</b>` +
-            studentName +
             `<br>Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}` +
             `<br>Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
             alertBadge

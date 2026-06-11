@@ -22,7 +22,7 @@ async function loadDevices() {
     const res = await apiRequest('/devices');
     const tbody = document.getElementById('deviceTableBody');
     if (!res || !res.data || res.data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Kayıtlı cihaz yok</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Kayıtlı cihaz yok</td></tr>';
       return;
     }
     const now = Date.now();
@@ -30,7 +30,6 @@ async function loadDevices() {
       const isOnline = d.last_seen && (now - new Date(d.last_seen).getTime()) < 300000;
       return `<tr>
         <td><strong>${d.student_id || '-'}</strong></td>
-        <td>${d.user_name || '-'}</td>
         <td>${d.device_type || 'smartphone'}</td>
         <td>${d.platform || '-'}</td>
         <td><span class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}</span></td>
@@ -79,30 +78,14 @@ async function deleteDevice(id) {
 // ======== Simülatör ========
 async function showSimulator() {
   document.getElementById('simModal').classList.add('show');
-  await loadDevicesForSim();
   await loadDangerZones();
   initSimMap();
 }
 
-async function openSimForDevice(deviceId, deviceName) {
+async function openSimForDevice(deviceId, studentId) {
   document.getElementById('simModal').classList.add('show');
-  await loadDevicesForSim(deviceId);
   await loadDangerZones();
   initSimMap();
-}
-
-async function loadDevicesForSim(selectId) {
-  try {
-    const res = await apiRequest('/devices');
-    const sel = document.getElementById('simDevice');
-    if (!res || !res.data || res.data.length === 0) {
-      sel.innerHTML = '<option value="">Kayıtlı cihaz yok — önce cihaz ekleyin</option>';
-      return;
-    }
-    sel.innerHTML = res.data.map(d =>
-      `<option value="${d.id}" ${d.id === selectId ? 'selected' : ''}>${d.student_id || d.device_name}</option>`
-    ).join('');
-  } catch (err) { console.error(err); }
 }
 
 async function loadDangerZones() {
@@ -240,7 +223,6 @@ async function generateBulkDevices() {
     });
     showSimResult(`✅ ${res.message || 'Cihazlar oluşturuldu!'}`, 'ok');
     await loadDevices();
-    await loadDevicesForSim();
   } catch (err) {
     showSimResult('❌ Hata: ' + err.message, 'error');
   } finally {
@@ -264,7 +246,6 @@ async function cleanupBulkDevices() {
     });
     showSimResult(`✅ ${res.message || 'Test verileri temizlendi!'}`, 'ok');
     await loadDevices();
-    await loadDevicesForSim();
   } catch (err) {
     showSimResult('❌ Hata: ' + err.message, 'error');
   } finally {
@@ -273,55 +254,106 @@ async function cleanupBulkDevices() {
 }
 
 // Start Single Device Simulation
-function startSingleSim() {
-  const deviceId = document.getElementById('simDevice').value;
-  if (!deviceId) return showSimResult('Lütfen bir cihaz seçin', 'error');
+async function startSingleSim() {
   if (!simLat || !simLng) return showSimResult('Lütfen haritadan bir konum seçin', 'error');
 
-  const sel = document.getElementById('simDevice');
-  const deviceName = sel.options[sel.selectedIndex].text;
-  
-  const intervalSeconds = parseInt(document.getElementById('simInterval').value) || 5;
-  const maxPackets = parseInt(document.getElementById('simMaxPackets').value) || 0;
-  const walkEffect = document.getElementById('simWalkEffect').checked;
+  const btn = document.getElementById('simSendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Cihaz oluşturuluyor...';
 
-  if (activeSimulators[deviceId]) {
-    stopSimulator(deviceId);
-  }
+  try {
+    const res = await apiRequest('/simulator/generate', {
+      method: 'POST',
+      body: JSON.stringify({ count: 1 })
+    });
 
-  // Create simulator configuration
-  const sim = {
-    id: deviceId,
-    name: deviceName,
-    lat: simLat,
-    lng: simLng,
-    walk: walkEffect,
-    interval: intervalSeconds,
-    maxPackets: maxPackets,
-    packetsSent: 0,
-    preset: 'custom',
-    customData: () => ({
-      noise_level: parseFloat(document.getElementById('simNoise').value),
-      acceleration_x: parseFloat(document.getElementById('simAccX').value),
-      acceleration_y: parseFloat(document.getElementById('simAccY').value),
-      acceleration_z: parseFloat(document.getElementById('simAccZ').value),
-      speed: parseFloat(document.getElementById('simSpeed').value),
-      battery_level: parseInt(document.getElementById('simBattery').value),
-      network_type: '4g'
-    })
-  };
+    if (!res || !res.devices || res.devices.length === 0) {
+      throw new Error('Test cihazı oluşturulamadı.');
+    }
 
-  // Run first packet instantly
-  sendSimulatorPacket(sim);
+    const device = res.devices[0];
+    const deviceId = device.id;
+    const deviceName = device.device_name;
 
-  // Set interval
-  sim.intervalId = setInterval(() => {
+    const intervalSeconds = parseInt(document.getElementById('simInterval').value) || 5;
+    const maxPackets = parseInt(document.getElementById('simMaxPackets').value) || 0;
+    const walkEffect = document.getElementById('simWalkEffect').checked;
+
+    if (activeSimulators[deviceId]) {
+      stopSimulator(deviceId);
+    }
+
+    // Create simulator configuration
+    const sim = {
+      id: deviceId,
+      name: deviceName,
+      lat: simLat,
+      lng: simLng,
+      walk: walkEffect,
+      interval: intervalSeconds,
+      maxPackets: maxPackets,
+      packetsSent: 0,
+      preset: 'custom',
+      customData: () => ({
+        noise_level: parseFloat(document.getElementById('simNoise').value),
+        acceleration_x: parseFloat(document.getElementById('simAccX').value),
+        acceleration_y: parseFloat(document.getElementById('simAccY').value),
+        acceleration_z: parseFloat(document.getElementById('simAccZ').value),
+        speed: parseFloat(document.getElementById('simSpeed').value),
+        battery_level: parseInt(document.getElementById('simBattery').value),
+        network_type: '4g'
+      })
+    };
+
+    // Run first packet instantly
     sendSimulatorPacket(sim);
-  }, intervalSeconds * 1000);
 
-  activeSimulators[deviceId] = sim;
-  updateSimsUI();
-  showSimResult(`📡 ${deviceName} için sürekli gönderim başlatıldı.`, 'ok');
+    // Set interval
+    sim.intervalId = setInterval(() => {
+      sendSimulatorPacket(sim);
+    }, intervalSeconds * 1000);
+
+    activeSimulators[deviceId] = sim;
+    updateSimsUI();
+    await loadDevices();
+
+    // Reset UI to default
+    if (simMarker) {
+      simMap.removeLayer(simMarker);
+      simMarker = null;
+    }
+    simLat = null;
+    simLng = null;
+    document.getElementById('simCoordsDisplay').textContent = 'Haritaya tıklayarak konum seçin';
+
+    // Reset controls
+    document.getElementById('simNoise').value = 55;
+    document.getElementById('simNoiseVal').textContent = '55 dB';
+
+    document.getElementById('simAccX').value = 0;
+    document.getElementById('simAccXVal').textContent = '0 m/s²';
+
+    document.getElementById('simAccY').value = 0;
+    document.getElementById('simAccYVal').textContent = '0 m/s²';
+
+    document.getElementById('simAccZ').value = 9.8;
+    document.getElementById('simAccZVal').textContent = '9.8 m/s²';
+
+    document.getElementById('simSpeed').value = 0;
+    document.getElementById('simSpeedVal').textContent = '0 km/h';
+
+    document.getElementById('simBattery').value = 80;
+    document.getElementById('simBatteryVal').textContent = '80%';
+
+    document.getElementById('simWalkEffect').checked = true;
+
+    showSimResult(`📡 ${deviceName} oluşturuldu ve simülasyon başlatıldı.`, 'ok');
+  } catch (err) {
+    showSimResult('❌ Hata: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📡 Simülasyonu Başlat';
+  }
 }
 
 // Start Bulk Simulator
@@ -492,6 +524,9 @@ function stopSimulator(deviceId) {
   const sim = activeSimulators[deviceId];
   if (sim) {
     clearInterval(sim.intervalId);
+    apiRequest('/devices/' + deviceId, { method: 'DELETE' })
+      .then(() => loadDevices())
+      .catch(err => console.error('Error deleting test device:', err));
     delete activeSimulators[deviceId];
     updateSimsUI();
     loadDevices();
@@ -502,10 +537,12 @@ function stopSimulator(deviceId) {
 function stopAllSimulators() {
   Object.keys(activeSimulators).forEach(id => {
     clearInterval(activeSimulators[id].intervalId);
+    apiRequest('/devices/' + id, { method: 'DELETE' })
+      .catch(err => console.error('Error deleting test device:', err));
     delete activeSimulators[id];
   });
+  setTimeout(loadDevices, 1000);
   updateSimsUI();
-  loadDevices();
 }
 
 // Update Active Simulators Panel

@@ -81,7 +81,8 @@ const zoneSchema = Joi.object({
 const deviceSchema = Joi.object({
   device_name: Joi.string().min(1).max(255).required(),
   device_type: Joi.string().default('smartphone'),
-  platform: Joi.string().allow(null, '')
+  platform: Joi.string().allow(null, ''),
+  student_id: Joi.string().min(1).max(255).optional()
 });
 
 module.exports = {

@@ -102,6 +102,31 @@ exports.updateDevice = async (req, res) => {
 exports.deleteDevice = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Test kullanıcısına aitse kullanıcıyı sil (böylece cascade silme tetiklenir)
+    const { data: device } = await supabase
+      .from('devices')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (device && device.user_id) {
+      const { data: user } = await supabase
+        .from('users')
+        .select('student_id')
+        .eq('id', device.user_id)
+        .single();
+
+      if (user && user.student_id && user.student_id.startsWith('TEST')) {
+        const { error: userDelError } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', device.user_id);
+        if (userDelError) throw userDelError;
+        return res.json({ message: 'Test cihazı ve kullanıcısı başarıyla silindi' });
+      }
+    }
+
     const { error } = await supabase.from('devices').delete().eq('id', id);
     if (error) throw error;
     res.json({ message: 'Cihaz silindi' });
