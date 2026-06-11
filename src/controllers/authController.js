@@ -88,3 +88,46 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   res.json({ user: req.user });
 };
+
+// Dashboard admin girişi (email + password)
+exports.adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Email veya şifre hatalı' });
+    }
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Bu panele erişim yalnızca admin kullanıcılara açıktır' });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Email veya şifre hatalı' });
+    }
+
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'Hesap devre dışı' });
+    }
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    });
+
+    res.json({
+      message: 'Giriş başarılı',
+      user: { id: user.id, student_id: user.student_id, email: user.email, full_name: user.full_name, role: user.role },
+      token
+    });
+  } catch (err) {
+    console.error('Admin login error:', err);
+    res.status(500).json({ error: 'Giriş sırasında hata oluştu' });
+  }
+};

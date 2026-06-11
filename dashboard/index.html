@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="CampusGuard - Kampüs Güvenliği ve Çevresel Gözlem Platformu">
-  <title>CampusGuard - Giriş</title>
+  <title>CampusGuard - Admin Girişi</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -14,44 +14,22 @@
         <div class="shield">🛡️</div>
         <h1>CampusGuard</h1>
         <p>Kampüs Güvenliği ve Çevresel Gözlem Platformu</p>
-      </div>
-
-      <!-- Tab: Login / Register -->
-      <div class="tab-nav">
-        <button class="tab-btn active" onclick="showTab('login')">Giriş Yap</button>
-        <button class="tab-btn" onclick="showTab('register')">Kayıt Ol</button>
+        <small style="color:#f59e0b;font-size:0.75rem;margin-top:4px;display:block;">Admin Paneli</small>
       </div>
 
       <div id="alertBox" class="alert-msg"></div>
 
-      <!-- Login Form -->
+      <!-- Admin Login Form -->
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
           <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="ornek@btu.edu.tr" required>
+          <input type="email" id="loginEmail" placeholder="admin@btu.edu.tr" required>
         </div>
         <div class="form-group">
           <label for="loginPassword">Şifre</label>
           <input type="password" id="loginPassword" placeholder="••••••" required>
         </div>
         <button type="submit" class="btn btn-primary btn-full" id="loginBtn">Giriş Yap</button>
-      </form>
-
-      <!-- Register Form -->
-      <form id="registerForm" style="display:none" onsubmit="handleRegister(event)">
-        <div class="form-group">
-          <label for="regName">Ad Soyad</label>
-          <input type="text" id="regName" placeholder="Ad Soyad" required>
-        </div>
-        <div class="form-group">
-          <label for="regEmail">Email</label>
-          <input type="email" id="regEmail" placeholder="ornek@btu.edu.tr" required>
-        </div>
-        <div class="form-group">
-          <label for="regPassword">Şifre</label>
-          <input type="password" id="regPassword" placeholder="En az 6 karakter" minlength="6" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-full" id="regBtn">Kayıt Ol</button>
       </form>
     </div>
   </div>

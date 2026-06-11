@@ -23,6 +23,17 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
+// Dashboard admin giriş şeması (email + password)
+const adminLoginSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'Geçerli bir email adresi giriniz',
+    'any.required': 'Email adresi gerekli'
+  }),
+  password: Joi.string().min(1).required().messages({
+    'any.required': 'Şifre gerekli'
+  })
+});
+
 // Sensör verisi şeması
 const sensorDataSchema = Joi.object({
   device_id: Joi.string().uuid().required(),
@@ -76,6 +87,7 @@ module.exports = {
   validate,
   registerSchema,
   loginSchema,
+  adminLoginSchema,
   sensorDataSchema,
   sensorBatchSchema,
   zoneSchema,
