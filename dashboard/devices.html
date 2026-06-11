@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CampusGuard - Cihazlar</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    .slider-row { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .slider-row label { font-size:12px; color:var(--text-secondary); width:140px; flex-shrink:0; }
+    .slider-row input[type=range] { flex:1; accent-color:var(--primary); }
+    .slider-row .val { font-size:13px; font-weight:600; color:var(--text-primary); width:70px; text-align:right; }
+    #simMap { height:240px; width:100%; border-radius:8px; border:1px solid var(--border); margin-bottom:12px; }
+    .sim-coords { font-size:12px; color:var(--text-muted); margin-bottom:8px; min-height:18px; }
+    .danger-zones-list { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+    .dz-btn { font-size:11px; padding:4px 10px; border-radius:16px; border:1px solid var(--danger); color:var(--danger); background:var(--danger-light); cursor:pointer; }
+    .dz-btn:hover { background:var(--danger); color:white; }
+  </style>
 </head>
 <body>
   <div class="app-layout">
@@ -29,7 +41,8 @@
       <header class="header">
         <h1>📱 Cihaz Yönetimi</h1>
         <div class="header-actions">
-          <button class="btn btn-primary btn-sm" onclick="showRegisterDevice()">+ Cihaz Ekle</button>
+          <button class="btn btn-outline btn-sm" onclick="showRegisterDevice()">+ Cihaz Ekle</button>
+          <button class="btn btn-primary btn-sm" onclick="showSimulator()">🧪 Test Verisi Gönder</button>
         </div>
       </header>
 
@@ -53,22 +66,100 @@
     </main>
   </div>
 
-  <!-- Register Device Modal -->
+  <!-- Normal Cihaz Kayıt Modal -->
   <div class="modal-overlay" id="deviceModal">
     <div class="modal">
-      <div class="modal-header"><h3>Yeni Cihaz Kaydet</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-header"><h3>Yeni Cihaz Kaydet</h3><button class="modal-close" onclick="closeModal('deviceModal')">&times;</button></div>
       <div class="modal-body">
         <div class="form-group"><label>Cihaz Adı</label><input type="text" id="deviceName" placeholder="Örn: Samsung Galaxy S24"></div>
         <div class="form-group"><label>Cihaz Tipi</label><select id="deviceType"><option value="smartphone">Akıllı Telefon</option><option value="tablet">Tablet</option><option value="other">Diğer</option></select></div>
         <div class="form-group"><label>Platform</label><select id="devicePlatform"><option value="Android">Android</option><option value="iOS">iOS</option><option value="Web">Web</option></select></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal()">İptal</button>
+        <button class="btn btn-outline" onclick="closeModal('deviceModal')">İptal</button>
         <button class="btn btn-primary" onclick="registerDevice()">Kaydet</button>
       </div>
     </div>
   </div>
 
+  <!-- Test Veri Simülatörü Modal -->
+  <div class="modal-overlay" id="simModal">
+    <div class="modal" style="max-width:700px">
+      <div class="modal-header">
+        <h3>🧪 Test Verisi Simülatörü</h3>
+        <button class="modal-close" onclick="closeModal('simModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Cihaz seç -->
+        <div class="form-group">
+          <label>Cihaz Seç</label>
+          <select id="simDevice"><option value="">-- Cihaz Yükleniyor --</option></select>
+        </div>
+
+        <!-- Haritadan konum seç -->
+        <div class="form-group">
+          <label>📍 Haritadan Konum Seç (BTÜ)</label>
+          <div id="simMap"></div>
+          <div class="sim-coords" id="simCoordsDisplay">Haritaya tıklayarak konum seçin</div>
+          <!-- Tehlikeli bölgeye hızlı gönder -->
+          <div id="dangerZonesBtns" class="danger-zones-list"></div>
+        </div>
+
+        <!-- Sensör sliders -->
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Sensör Değerleri</div>
+
+          <div class="slider-row">
+            <label>🔊 Gürültü (dB)</label>
+            <input type="range" id="simNoise" min="30" max="120" value="55" oninput="updateSliderVal('simNoise','simNoiseVal',' dB')">
+            <span class="val" id="simNoiseVal">55 dB</span>
+          </div>
+          <div class="slider-row">
+            <label>💥 İvme X (m/s²)</label>
+            <input type="range" id="simAccX" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccX','simAccXVal',' m/s²')">
+            <span class="val" id="simAccXVal">0 m/s²</span>
+          </div>
+          <div class="slider-row">
+            <label>💥 İvme Y (m/s²)</label>
+            <input type="range" id="simAccY" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccY','simAccYVal',' m/s²')">
+            <span class="val" id="simAccYVal">0 m/s²</span>
+          </div>
+          <div class="slider-row">
+            <label>💥 İvme Z (m/s²)</label>
+            <input type="range" id="simAccZ" min="-40" max="40" value="9.8" step="0.5" oninput="updateSliderVal('simAccZ','simAccZVal',' m/s²')">
+            <span class="val" id="simAccZVal">9.8 m/s²</span>
+          </div>
+          <div class="slider-row">
+            <label>🏎️ Hız (km/h)</label>
+            <input type="range" id="simSpeed" min="0" max="100" value="0" oninput="updateSliderVal('simSpeed','simSpeedVal',' km/h')">
+            <span class="val" id="simSpeedVal">0 km/h</span>
+          </div>
+          <div class="slider-row">
+            <label>🔋 Batarya (%)</label>
+            <input type="range" id="simBattery" min="0" max="100" value="80" oninput="updateSliderVal('simBattery','simBatteryVal','%')">
+            <span class="val" id="simBatteryVal">80%</span>
+          </div>
+
+          <!-- Hızlı alarm preset'leri -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin:14px 0 10px;text-transform:uppercase;letter-spacing:.5px">Hızlı Preset</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-outline" onclick="applyPreset('noise')">🔊 Yüksek Gürültü</button>
+            <button class="btn btn-sm btn-outline" onclick="applyPreset('motion')">💥 Anormal Hareket</button>
+            <button class="btn btn-sm btn-outline" onclick="applyPreset('speed')">🏎️ Hız İhlali</button>
+            <button class="btn btn-sm btn-outline" onclick="applyPreset('normal')">✅ Normal</button>
+          </div>
+        </div>
+
+        <div id="simResult" style="margin-top:14px;font-size:13px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('simModal')">Kapat</button>
+        <button class="btn btn-primary" onclick="sendSimData()" id="simSendBtn">📡 Veri Gönder</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/devices.js"></script>
 </body>

@@ -51,10 +51,10 @@
             <div class="card" id="zoneFormCard" style="display:none;margin-bottom:24px">
               <div class="card-header"><h3>Yeni Bölge Bilgileri</h3></div>
               <div class="card-body">
-                <div class="form-group"><label>Bölge Adı</label><input type="text" id="zoneName" placeholder="Örn: Kütüphane"></div>
+                <div class="form-group"><label>Bölge Adı</label><input type="text" id="zoneName" placeholder="Örn: Kütüphane Önü"></div>
                 <div class="form-group">
                   <label>Bölge Tipi</label>
-                  <select id="zoneType">
+                  <select id="zoneType" onchange="updateZoneColor()">
                     <option value="normal">Normal</option>
                     <option value="restricted">Kısıtlı</option>
                     <option value="danger">Tehlikeli</option>
@@ -63,6 +63,7 @@
                 <div class="form-group"><label>Maks. Kapasite</label><input type="number" id="zoneCapacity" value="100" min="0"></div>
                 <div class="form-group"><label>Renk</label><input type="color" id="zoneColor" value="#3b82f6" style="width:60px;height:36px;padding:2px"></div>
                 <div class="form-group"><label>Açıklama</label><textarea id="zoneDescription" rows="2" placeholder="Opsiyonel"></textarea></div>
+
                 <div style="display:flex;gap:12px">
                   <button class="btn btn-primary" onclick="saveZone()">Kaydet</button>
                   <button class="btn btn-outline" onclick="cancelZone()">İptal</button>

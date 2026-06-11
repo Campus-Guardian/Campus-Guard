@@ -2,8 +2,8 @@
 // Admin panelinden yeni bölgeler eklenebilir, bunlar veritabanında saklanır
 
 const CAMPUS_CENTER = {
-  lat: 40.2226,
-  lng: 28.8700
+  lat: 40.1889,
+  lng: 29.1310
 };
 
 const CAMPUS_ZOOM = 17;
