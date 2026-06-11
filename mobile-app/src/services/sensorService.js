@@ -9,6 +9,7 @@ let locationSubscription = null;
 let accelerometerSubscription = null;
 let recording = null;
 let noiseInterval = null;
+let batteryInterval = null;
 
 // Shared mutable sensor data
 const sensorData = {
@@ -51,7 +52,7 @@ async function startGPS() {
       (location) => {
         sensorData.latitude = location.coords.latitude;
         sensorData.longitude = location.coords.longitude;
-        sensorData.speed = location.coords.speed
+        sensorData.speed = location.coords.speed && location.coords.speed > 0
           ? parseFloat((location.coords.speed * 3.6).toFixed(1))
           : 0;
         notify();
@@ -155,7 +156,7 @@ async function stopMicrophone() {
 async function getBattery() {
   try {
     const level = await Battery.getBatteryLevelAsync();
-    sensorData.battery_level = Math.round(level * 100);
+    sensorData.battery_level = level >= 0 ? Math.round(level * 100) : null;
     notify();
   } catch (e) {
     console.warn('Batarya API hatası:', e);
@@ -179,7 +180,17 @@ async function getNetwork() {
 // ========== Public API ==========
 export function getSensorSnapshot() {
   getNetwork();
-  return { ...sensorData };
+  return {
+    latitude: sensorData.latitude,
+    longitude: sensorData.longitude,
+    noise_level: sensorData.noise_level,
+    acceleration_x: sensorData.acceleration_x,
+    acceleration_y: sensorData.acceleration_y,
+    acceleration_z: sensorData.acceleration_z,
+    speed: sensorData.speed,
+    battery_level: sensorData.battery_level,
+    network_type: sensorData.network_type,
+  };
 }
 
 export async function startAllSensors() {
@@ -188,16 +199,16 @@ export async function startAllSensors() {
   await startMicrophone();
   await getBattery();
   // Refresh battery periodically
-  sensorData._batteryInterval = setInterval(getBattery, 30000);
+  batteryInterval = setInterval(getBattery, 30000);
 }
 
 export async function stopAllSensors() {
   stopGPS();
   stopAccelerometer();
   await stopMicrophone();
-  if (sensorData._batteryInterval) {
-    clearInterval(sensorData._batteryInterval);
-    sensorData._batteryInterval = null;
+  if (batteryInterval) {
+    clearInterval(batteryInterval);
+    batteryInterval = null;
   }
 }
 

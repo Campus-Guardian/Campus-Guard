@@ -44,6 +44,9 @@ export async function mApi(url, opts = {}) {
     await clearAuth();
     return null;
   }
-  if (!res.ok) throw new Error(data.error || 'Hata');
+  if (!res.ok) {
+    const details = data.details ? `: ${data.details.join(', ')}` : '';
+    throw new Error((data.error || 'Hata') + details);
+  }
   return data;
 }
