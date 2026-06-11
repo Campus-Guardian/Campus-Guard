@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "CampusGuard Mobil",
+    "slug": "campusguard-mobil",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0f1e",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır.",
+        "NSMicrophoneUsageDescription": "CampusGuard çevresel gürültü seviyesini ölçmek için mikrofon kullanır.",
+        "NSMotionUsageDescription": "CampusGuard hareket verilerini sensör olarak toplar."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0f1e",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECORD_AUDIO",
+        "BATTERY_STATS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "CampusGuard çevresel gürültü seviyesini ölçmek için mikrofon kullanır."
+        }
+      ],
+      [
+        "expo-sensors"
+      ]
+    ]
+  }
+}
