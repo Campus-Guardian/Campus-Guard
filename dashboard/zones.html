@@ -90,5 +90,47 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/zones.js"></script>
+
+  <!-- Bölge Düzenleme Modalı -->
+  <div class="modal-overlay" id="editZoneModal">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <h3>✏️ Bölge Düzenle</h3>
+        <button class="modal-close" onclick="closeEditZoneModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editZoneId">
+        <div class="form-group">
+          <label>Bölge Adı</label>
+          <input type="text" id="editZoneName" placeholder="Örn: Kütüphane Önü">
+        </div>
+        <div class="form-group">
+          <label>Bölge Tipi</label>
+          <select id="editZoneType">
+            <option value="normal">Normal</option>
+            <option value="restricted">Kısıtlı</option>
+            <option value="danger">Tehlikeli</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Maks. Kapasite <small style="color:var(--text-muted)">(girilemez bölgeler için 0)</small></label>
+          <input type="number" id="editZoneCapacity" min="0" value="100">
+        </div>
+        <div class="form-group">
+          <label>Renk</label>
+          <input type="color" id="editZoneColor" value="#3b82f6" style="width:60px;height:36px;padding:2px">
+        </div>
+        <div class="form-group">
+          <label>Açıklama</label>
+          <textarea id="editZoneDescription" rows="2" placeholder="Opsiyonel"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeEditZoneModal()">İptal</button>
+        <button class="btn btn-primary" onclick="updateZone()">💾 Kaydet</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

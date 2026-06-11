@@ -8,6 +8,25 @@ class AlertService {
 
   async createAlert(alertData) {
     try {
+      // Duplikasyon ve spam engelleme:
+      // Eğer bu cihaz/bölge için zaten aynı tipte çözülmemiş (is_resolved = false) bir alarm varsa yeni alarm oluşturma.
+      let checkQuery = supabase
+        .from('alerts')
+        .select('id')
+        .eq('alert_type', alertData.type)
+        .eq('is_resolved', false);
+
+      if (alertData.device_id) {
+        checkQuery = checkQuery.eq('device_id', alertData.device_id);
+      } else if (alertData.zone_id) {
+        checkQuery = checkQuery.eq('zone_id', alertData.zone_id);
+      }
+
+      const { data: existingAlerts } = await checkQuery;
+      if (existingAlerts && existingAlerts.length > 0) {
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('alerts')
         .insert({

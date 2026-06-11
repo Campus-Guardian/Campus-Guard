@@ -27,7 +27,7 @@ exports.createZone = async (req, res) => {
         name,
         type,
         polygon,
-        max_capacity: max_capacity || 100,
+        max_capacity: max_capacity != null ? max_capacity : 100,
         color: color || '#3b82f6',
         description: description || null,
         created_by: req.user.id
