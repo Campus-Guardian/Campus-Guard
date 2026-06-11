@@ -20,6 +20,14 @@ function initSocket() {
     if (typeof loadAlerts === 'function') loadAlerts();
   });
 
+  socket.on('all-alerts-resolved', () => {
+    console.log('[Socket] All alerts resolved');
+    const countEl = document.getElementById('alertCount');
+    if (countEl) countEl.textContent = '0';
+    if (typeof loadDashboard === 'function') loadDashboard();
+    if (typeof loadAlerts === 'function') loadAlerts();
+  });
+
   socket.on('sensor-update', (data) => {
     console.log('[Socket] Sensor update:', data);
     if (typeof updateDeviceOnMap === 'function') updateDeviceOnMap(data);

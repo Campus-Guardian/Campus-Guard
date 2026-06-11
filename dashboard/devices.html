@@ -79,7 +79,7 @@
             <div class="table-container">
               <table>
                 <thead>
-                  <tr><th>Cihaz Adı</th><th>Öğrenci No</th><th>Tip</th><th>Platform</th><th>Durum</th><th>Son Görülme</th><th>Konum</th><th>İşlem</th></tr>
+                  <tr><th>Öğrenci No</th><th>Öğrenci Adı</th><th>Tip</th><th>Platform</th><th>Durum</th><th>Son Görülme</th><th>Konum</th><th>İşlem</th></tr>
                 </thead>
                 <tbody id="deviceTableBody">
                   <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
@@ -97,7 +97,7 @@
     <div class="modal">
       <div class="modal-header"><h3>Yeni Cihaz Kaydet</h3><button class="modal-close" onclick="closeModal('deviceModal')">&times;</button></div>
       <div class="modal-body">
-        <div class="form-group"><label>Cihaz Adı</label><input type="text" id="deviceName" placeholder="Örn: Samsung Galaxy S24"></div>
+        <div class="form-group"><label>Öğrenci Numarası</label><input type="text" id="deviceStudentId" placeholder="Örn: 220101001"></div>
         <div class="form-group"><label>Cihaz Tipi</label><select id="deviceType"><option value="smartphone">Akıllı Telefon</option><option value="tablet">Tablet</option><option value="other">Diğer</option></select></div>
         <div class="form-group"><label>Platform</label><select id="devicePlatform"><option value="Android">Android</option><option value="iOS">iOS</option><option value="Web">Web</option></select></div>
       </div>

@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SensorCard from '../components/SensorCard';
 import StatusIndicator from '../components/StatusIndicator';
 import GradientButton from '../components/GradientButton';
-import SetupModal from '../components/SetupModal';
+import { mApi } from '../config/api';
 import { COLORS, RADIUS, SIZES, SPACING } from '../config/theme';
 import {
   startAllSensors, stopAllSensors, setOnSensorUpdate,
@@ -24,7 +24,7 @@ import { logout } from '../services/authService';
 export default function AppScreen({ onLogout }) {
   const [isRunning, setIsRunning] = useState(false);
   const [currentDevice, setCurrentDevice] = useState(null);
-  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [statusState, setStatusState] = useState('ready');
   const [statusText, setStatusText] = useState('Bağlanıyor...');
   const [statusSub, setStatusSub] = useState('Sensörler başlatılıyor');
@@ -92,8 +92,56 @@ export default function AppScreen({ onLogout }) {
     };
   }, []);
 
+  const autoRegisterDevice = async (user) => {
+    if (!user) {
+      setStatusState('error');
+      setStatusText('Hata');
+      setStatusSub('Kullanıcı bilgisi bulunamadı, lütfen çıkış yapıp tekrar girin.');
+      return;
+    }
+    setStatusState('loading');
+    setStatusText('Cihaz kaydediliyor...');
+    try {
+      const detectPlatform = () => {
+        return Platform.OS === 'android' ? 'Android' : Platform.OS === 'ios' ? 'iOS' : 'Web';
+      };
+      const res = await mApi('/devices/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: user.student_id,
+          device_name: user.student_id,
+          device_type: 'smartphone',
+          platform: detectPlatform(),
+        }),
+      });
+      if (res && res.device) {
+        await AsyncStorage.setItem('cg_m_device', JSON.stringify(res.device));
+        setCurrentDevice(res.device);
+        setStatusState('ready');
+        setStatusText('Hazır');
+        setStatusSub('Sensörleri başlatmak için butona basın');
+      }
+    } catch (err) {
+      console.error('Auto register device error:', err);
+      setStatusState('error');
+      setStatusText('Kayıt Hatası');
+      setStatusSub('Cihaz kaydedilemedi: ' + err.message);
+    }
+  };
+
   const initApp = async () => {
     await loadOfflineQueue();
+
+    const savedUser = await AsyncStorage.getItem('cg_m_user');
+    let currentUserObj = null;
+    if (savedUser) {
+      try {
+        currentUserObj = JSON.parse(savedUser);
+        setCurrentUser(currentUserObj);
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
     const savedDevice = await AsyncStorage.getItem('cg_m_device');
     if (savedDevice) {
@@ -105,19 +153,11 @@ export default function AppScreen({ onLogout }) {
         setStatusSub('Sensörleri başlatmak için butona basın');
       } catch (e) {
         await AsyncStorage.removeItem('cg_m_device');
-        setShowSetupModal(true);
+        await autoRegisterDevice(currentUserObj);
       }
     } else {
-      setShowSetupModal(true);
+      await autoRegisterDevice(currentUserObj);
     }
-  };
-
-  const handleDeviceRegistered = (device) => {
-    setCurrentDevice(device);
-    setShowSetupModal(false);
-    setStatusState('ready');
-    setStatusText('Hazır');
-    setStatusSub('Sensörleri başlatmak için butona basın');
   };
 
   const handleToggleSensors = async () => {
@@ -130,7 +170,9 @@ export default function AppScreen({ onLogout }) {
 
   const handleStartSensors = async () => {
     if (!currentDevice) {
-      setShowSetupModal(true);
+      if (currentUser) {
+        await autoRegisterDevice(currentUser);
+      }
       return;
     }
 
@@ -223,24 +265,15 @@ export default function AppScreen({ onLogout }) {
           />
         </View>
 
-        {/* Device Info */}
-        {currentDevice && (
+        {/* Student Info */}
+        {currentUser && (
           <View style={styles.deviceInfo}>
             <Text style={styles.deviceText}>
-              Cihaz: <Text style={styles.deviceName}>{currentDevice.device_name}</Text>
-            </Text>
-            <Text style={styles.deviceText}>
-              ID: <Text style={styles.deviceId}>{currentDevice.id?.substring(0, 8)}...</Text>
+              Öğrenci No: <Text style={styles.deviceName}>{currentUser.student_id}</Text>
             </Text>
           </View>
         )}
       </ScrollView>
-
-      {/* Setup Modal */}
-      <SetupModal
-        visible={showSetupModal}
-        onDeviceRegistered={handleDeviceRegistered}
-      />
     </SafeAreaView>
   );
 }

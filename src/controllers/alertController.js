@@ -50,6 +50,38 @@ exports.resolveAlert = async (req, res) => {
   }
 };
 
+// Tüm alarmları çöz
+exports.resolveAllAlerts = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('alerts')
+      .update({
+        is_resolved: true,
+        resolved_by: req.user.id,
+        resolved_at: new Date().toISOString()
+      })
+      .eq('is_resolved', false)
+      .select();
+
+    if (error) throw error;
+
+    // Trigger real-time socket.io notification
+    try {
+      const { getIO } = require('../socket/socketHandler');
+      const io = getIO();
+      if (io) {
+        io.emit('alert-count-update');
+        io.emit('all-alerts-resolved');
+      }
+    } catch (e) {}
+
+    res.json({ message: 'Tüm alarmlar çözüldü', count: data ? data.length : 0 });
+  } catch (err) {
+    console.error('Resolve all alerts error:', err);
+    res.status(500).json({ error: 'Alarmlar çözülemedi' });
+  }
+};
+
 // Alarm istatistikleri
 exports.getAlertStats = async (req, res) => {
   try {

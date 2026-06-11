@@ -52,11 +52,10 @@ async function loadAlerts() {
       <tr>
         <td><span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span></td>
         <td>${typeNames[a.alert_type] || a.alert_type}</td>
-        <td>${details.device_name || '-'}</td>
         <td>${details.student_id || '-'}</td>
         <td style="max-width:300px">${a.message}</td>
         <td style="white-space:nowrap">${new Date(a.created_at).toLocaleString('tr-TR')}</td>
-        <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Aktif'}</span></td>
+        <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Çözülmemiş'}</span></td>
         <td>${!a.is_resolved && isAdmin ? `<button class="btn btn-success btn-sm" onclick="resolveAlert('${a.id}')">✓ Çöz</button>` : ''}</td>
       </tr>
     `}).join('');
@@ -69,6 +68,17 @@ async function loadAlerts() {
 async function resolveAlert(id) {
   try {
     await apiRequest('/alerts/' + id + '/resolve', { method: 'PATCH' });
+    loadAlerts();
+    loadAlertStats();
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function resolveAllAlerts() {
+  if (!confirm('Tüm çözülmemiş alarmları çözülmüş olarak işaretlemek istediğinizden emin misiniz?')) return;
+  try {
+    await apiRequest('/alerts/resolve-all', { method: 'PATCH' });
     loadAlerts();
     loadAlertStats();
   } catch (err) {

@@ -59,9 +59,115 @@ class SensorService {
       const { data: zones } = await supabase.from('zones').select('*').eq('is_active', true);
       const anomalies = analysisService.runAllAnalyses(sensorData, zones || []);
 
-      // 5. Tespit edilen anomaliler için alarm oluştur
-      if (anomalies.length > 0) {
-        await alertService.createMultipleAlerts(anomalies, sensorData);
+      // If student clicked the emergency button
+      if (sensorData.is_emergency) {
+        anomalies.push({
+          type: 'environmental',
+          severity: 'critical',
+          message: '🚨 Öğrenci Acil Durum Butonuna Bastı!'
+        });
+      }
+
+      // 5. Get active unresolved alerts for this device
+      const { data: activeAlerts } = await supabase
+        .from('alerts')
+        .select('*')
+        .eq('device_id', sensorData.device_id)
+        .eq('is_resolved', false);
+
+      const activeAlertsMap = {};
+      if (activeAlerts) {
+        activeAlerts.forEach(a => {
+          activeAlertsMap[a.alert_type] = a;
+        });
+      }
+
+      // Process anomalies (overwrite existing, create new)
+      const currentAnomalyTypes = new Set();
+      for (const anomaly of anomalies) {
+        currentAnomalyTypes.add(anomaly.type);
+        const existingAlert = activeAlertsMap[anomaly.type];
+
+        if (existingAlert) {
+          // Overwrite existing alert of the same type (move to top by updating created_at)
+          let enrichedDetails = existingAlert.details || {};
+          try {
+            const { data: device } = await supabase
+              .from('devices')
+              .select('device_name, user_id')
+              .eq('id', sensorData.device_id)
+              .single();
+            if (device && device.user_id) {
+              const { data: user } = await supabase
+                .from('users')
+                .select('student_id, full_name')
+                .eq('id', device.user_id)
+                .single();
+              if (user) {
+                enrichedDetails.student_id = user.student_id;
+                enrichedDetails.user_name = user.full_name;
+              }
+            }
+          } catch (e) {}
+
+          const { data: updatedAlert, error: updateErr } = await supabase
+            .from('alerts')
+            .update({
+              created_at: new Date().toISOString(),
+              message: anomaly.message,
+              details: { ...enrichedDetails, ...anomaly.details },
+              latitude: sensorData.latitude,
+              longitude: sensorData.longitude
+            })
+            .eq('id', existingAlert.id)
+            .select('*')
+            .single();
+
+          if (!updateErr && updatedAlert) {
+            try {
+              const io = getIO();
+              if (io) {
+                io.emit('new-alert', updatedAlert); // Overwritten triggers the same socket refresh
+              }
+            } catch (e) {}
+          }
+        } else {
+          // Create new alert
+          await alertService.createAlert({
+            ...anomaly,
+            device_id: sensorData.device_id,
+            latitude: sensorData.latitude,
+            longitude: sensorData.longitude
+          });
+        }
+      }
+
+      // Auto-resolve cleared alert types
+      if (activeAlerts) {
+        for (const activeAlert of activeAlerts) {
+          if (!currentAnomalyTypes.has(activeAlert.alert_type)) {
+            // Auto-resolve this alert
+            const { data: resolvedAlert, error: resolveErr } = await supabase
+              .from('alerts')
+              .update({
+                is_resolved: true,
+                resolved_at: new Date().toISOString()
+              })
+              .eq('id', activeAlert.id)
+              .select('*')
+              .single();
+
+            if (!resolveErr && resolvedAlert) {
+              try {
+                const io = getIO();
+                if (io) {
+                  io.emit('alert-resolved', resolvedAlert);
+                  io.emit('alert-count-update');
+                }
+              } catch (e) {}
+            }
+          }
+        }
       }
 
       // Bölge bazlı gürültü korelasyon analizi yap
@@ -76,16 +182,37 @@ class SensorService {
         await this.updateCrowdDensity(zones);
       }
 
-      // 7. Real-time konum güncellemesi
+      // 7. Real-time konum güncellemesi (now includes real-time anomalies for map marker coloring)
       try {
         const io = getIO();
         if (io) {
+          let studentId = null;
+          try {
+            const { data: devRec } = await supabase
+              .from('devices')
+              .select('user_id')
+              .eq('id', sensorData.device_id)
+              .single();
+            if (devRec && devRec.user_id) {
+              const { data: usrRec } = await supabase
+                .from('users')
+                .select('student_id')
+                .eq('id', devRec.user_id)
+                .single();
+              if (usrRec) {
+                studentId = usrRec.student_id;
+              }
+            }
+          } catch (err) {}
+
           io.emit('sensor-update', {
             device_id: sensorData.device_id,
+            student_id: studentId,
             latitude: sensorData.latitude,
             longitude: sensorData.longitude,
             noise_level: sensorData.noise_level,
             speed: sensorData.speed,
+            active_alerts: anomalies,
             timestamp: saved.timestamp
           });
         }

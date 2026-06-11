@@ -42,6 +42,7 @@ async function loadRecentAlerts() {
     }
 
     const severityIcons = { critical: '🚨', high: '⚠️', medium: '🔶', low: 'ℹ️' };
+    const severityLabels = { critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' };
     const typeNames = {
       'noise_warning': 'Gürültü', 'noise_critical': 'Gürültü', 'crowd_warning': 'Kalabalık',
       'crowd_critical': 'Kalabalık', 'restricted_zone': 'Kısıtlı Bölge', 'danger_zone': 'Tehlikeli Bölge',
@@ -58,7 +59,7 @@ async function loadRecentAlerts() {
           <div class="alert-text">${a.message}</div>
           <div class="alert-time">${new Date(a.created_at).toLocaleString('tr-TR')}</div>
         </div>
-        <span class="badge badge-${a.severity}">${a.severity}</span>
+        <span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span>
       </div>
     `).join('');
   } catch (err) {

@@ -28,7 +28,8 @@
     <main class="main-content">
       <header class="header">
         <h1>🔔 Alarm Yönetimi</h1>
-        <div class="header-actions">
+        <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
+          <button class="btn btn-outline btn-sm" onclick="resolveAllAlerts()" style="border-color:var(--danger); color:var(--danger)">✓ Tümünü Çöz</button>
           <div class="filters">
             <select id="filterType" onchange="loadAlerts()">
               <option value="">Tüm Tipler</option>
@@ -49,7 +50,7 @@
               <option value="low">Düşük</option>
             </select>
             <select id="filterResolved" onchange="loadAlerts()">
-              <option value="false">Aktif</option>
+              <option value="false">Çözülmemiş</option>
               <option value="true">Çözülmüş</option>
               <option value="">Tümü</option>
             </select>
@@ -60,7 +61,7 @@
       <div class="page-content">
         <!-- Alert Stats -->
         <div class="stats-grid fade-in">
-          <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-value" id="alertActive">0</div><div class="stat-label">Aktif Alarm</div></div>
+          <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-value" id="alertActive">0</div><div class="stat-label">Çözülmemiş Alarm</div></div>
           <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value" id="alertResolved">0</div><div class="stat-label">Çözülmüş</div></div>
           <div class="stat-card amber"><div class="stat-icon">📊</div><div class="stat-value" id="alertTotal">0</div><div class="stat-label">Toplam</div></div>
         </div>
@@ -75,7 +76,6 @@
                   <tr>
                     <th>Seviye</th>
                     <th>Tip</th>
-                    <th>Cihaz</th>
                     <th>Öğrenci No</th>
                     <th>Mesaj</th>
                     <th>Tarih</th>
@@ -84,7 +84,7 @@
                   </tr>
                 </thead>
                 <tbody id="alertTableBody">
-                  <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
+                  <tr><td colspan="7" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
                 </tbody>
               </table>
             </div>

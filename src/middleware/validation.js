@@ -45,7 +45,8 @@ const sensorDataSchema = Joi.object({
   acceleration_z: Joi.number().allow(null),
   speed: Joi.number().min(0).allow(null),
   battery_level: Joi.number().min(0).max(100).allow(null),
-  network_type: Joi.string().allow(null, '')
+  network_type: Joi.string().allow(null, ''),
+  is_emergency: Joi.boolean().optional()
 });
 
 const sensorBatchSchema = Joi.object({

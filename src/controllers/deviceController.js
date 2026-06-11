@@ -3,12 +3,27 @@ const supabase = require('../config/supabase');
 // Cihaz kaydı
 exports.registerDevice = async (req, res) => {
   try {
-    const { device_name, device_type, platform } = req.body;
+    const { student_id, device_name, device_type, platform } = req.body;
+
+    let targetUserId = req.user.id;
+    if (req.user.role === 'admin' && student_id) {
+      const { data: targetUser, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('student_id', student_id)
+        .single();
+
+      if (userError || !targetUser) {
+        return res.status(404).json({ error: 'Bu öğrenci numarasına ait bir kullanıcı bulunamadı. Lütfen önce öğrencinin üye olduğundan emin olun.' });
+      }
+      targetUserId = targetUser.id;
+    }
+
     const { data, error } = await supabase
       .from('devices')
       .insert({
-        user_id: req.user.id,
-        device_name,
+        user_id: targetUserId,
+        device_name: device_name || student_id,
         device_type: device_type || 'smartphone',
         platform: platform || null
       })

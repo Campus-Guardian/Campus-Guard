@@ -29,15 +29,15 @@ async function loadDevices() {
     tbody.innerHTML = res.data.map(d => {
       const isOnline = d.last_seen && (now - new Date(d.last_seen).getTime()) < 300000;
       return `<tr>
-        <td><strong>${d.device_name}</strong></td>
-        <td>${d.student_id || '-'}</td>
+        <td><strong>${d.student_id || '-'}</strong></td>
+        <td>${d.user_name || '-'}</td>
         <td>${d.device_type || 'smartphone'}</td>
         <td>${d.platform || '-'}</td>
         <td><span class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}</span></td>
         <td>${d.last_seen ? new Date(d.last_seen).toLocaleString('tr-TR') : '-'}</td>
         <td>${d.last_latitude ? d.last_latitude.toFixed(5)+', '+d.last_longitude.toFixed(5) : '-'}</td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="openSimForDevice('${d.id}','${d.device_name}')" title="Test verisi gönder">🧪</button>
+          <button class="btn btn-sm btn-outline" onclick="openSimForDevice('${d.id}','${d.student_id || d.device_name}')" title="Test verisi gönder">🧪</button>
           <button class="btn btn-danger btn-sm" onclick="deleteDevice('${d.id}')">🗑️</button>
         </td>
       </tr>`;
@@ -51,10 +51,16 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 
 async function registerDevice() {
   try {
+    const studentId = document.getElementById('deviceStudentId').value.trim();
+    if (!studentId) {
+      alert('Öğrenci numarası gereklidir');
+      return;
+    }
     await apiRequest('/devices/register', {
       method: 'POST',
       body: JSON.stringify({
-        device_name: document.getElementById('deviceName').value,
+        student_id: studentId,
+        device_name: studentId,
         device_type: document.getElementById('deviceType').value,
         platform: document.getElementById('devicePlatform').value
       })
@@ -94,7 +100,7 @@ async function loadDevicesForSim(selectId) {
       return;
     }
     sel.innerHTML = res.data.map(d =>
-      `<option value="${d.id}" ${d.id === selectId ? 'selected' : ''}>${d.device_name}</option>`
+      `<option value="${d.id}" ${d.id === selectId ? 'selected' : ''}>${d.student_id || d.device_name}</option>`
     ).join('');
   } catch (err) { console.error(err); }
 }
@@ -351,7 +357,7 @@ async function startBulkSim() {
 
       const sim = {
         id: d.id,
-        name: d.device_name,
+        name: d.student_id || d.device_name,
         lat: deviceLat,
         lng: deviceLng,
         walk: true,
