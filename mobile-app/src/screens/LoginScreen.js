@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView,
   Platform, ScrollView, TouchableWithoutFeedback, Keyboard,
+  Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +11,8 @@ import AlertMessage from '../components/AlertMessage';
 import GradientButton from '../components/GradientButton';
 import { COLORS, RADIUS, SIZES, SPACING } from '../config/theme';
 import { login } from '../services/authService';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLogin, onGoToRegister }) {
   const [studentId, setStudentId] = useState('');
@@ -49,11 +52,24 @@ export default function LoginScreen({ onLogin, onGoToRegister }) {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             <View style={styles.card}>
               <Text style={styles.logo}>🛡️</Text>
-              <Text style={styles.title}>CampusGuard</Text>
-              <Text style={styles.subtitle}>Mobil Sensör Uygulaması</Text>
+              <Text 
+                style={styles.title}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                CampusGuard
+              </Text>
+              <Text 
+                style={styles.subtitle}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+              >
+                Mobil Sensör Uygulaması
+              </Text>
 
               <AlertMessage
                 message={alert.message}
@@ -86,16 +102,19 @@ export default function LoginScreen({ onLogin, onGoToRegister }) {
                 />
               </View>
 
-              <GradientButton
-                title="Giriş Yap"
-                onPress={handleLogin}
-                loading={loading}
-              />
-              <GradientButton
-                title="Kayıt Ol"
-                variant="outline"
-                onPress={onGoToRegister}
-              />
+              <View style={styles.buttonContainer}>
+                <GradientButton
+                  title="Giriş Yap"
+                  onPress={handleLogin}
+                  loading={loading}
+                />
+                <View style={{ height: SPACING.md }} />
+                <GradientButton
+                  title="Kayıt Ol"
+                  variant="outline"
+                  onPress={onGoToRegister}
+                />
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -116,53 +135,64 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: SPACING.xxl,
+    padding: SPACING.lg,
   },
   card: {
     backgroundColor: COLORS.cardSolid,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.xxl,
-    padding: SPACING.xxxxl,
-    paddingHorizontal: 28,
-    width: '100%',
-    maxWidth: 400,
+    padding: SPACING.xl,
+    width: width > 440 ? 380 : '100%',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   logo: {
-    fontSize: SIZES.logo,
+    fontSize: SIZES.logo || 48,
     marginBottom: SPACING.sm,
   },
   title: {
-    fontSize: SIZES.xxxl,
+    fontSize: SIZES.xxxl || 28,
     fontWeight: '700',
     color: COLORS.primary,
     marginBottom: SPACING.xs,
+    textAlign: 'center',
+    width: '100%',
   },
   subtitle: {
-    fontSize: SIZES.md,
+    fontSize: SIZES.md || 16,
     color: COLORS.muted,
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+    width: '100%',
   },
   formGroup: {
     width: '100%',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   label: {
-    fontSize: SIZES.sm,
+    fontSize: SIZES.sm || 14,
     color: COLORS.muted,
     fontWeight: '500',
     marginBottom: SPACING.xs,
   },
   input: {
     width: '100%',
-    paddingVertical: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? SPACING.md : SPACING.sm,
     paddingHorizontal: SPACING.base,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
     color: COLORS.text,
-    fontSize: SIZES.base,
+    fontSize: SIZES.base || 16,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: SPACING.md,
   },
 });

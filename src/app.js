@@ -11,6 +11,8 @@ const deviceRoutes = require('./routes/deviceRoutes');
 const zoneRoutes = require('./routes/zoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const btuRoutes = require('./routes/btuRoutes');
+const simulatorRoutes = require('./routes/simulatorRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -37,6 +39,8 @@ app.use('/api/devices', deviceRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/btu', btuRoutes);
+app.use('/api/simulator', simulatorRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Root redirect
 app.get('/', (req, res) => {

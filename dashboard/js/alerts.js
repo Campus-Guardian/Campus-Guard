@@ -30,7 +30,7 @@ async function loadAlerts() {
     const tbody = document.getElementById('alertTableBody');
 
     if (!res || !res.data || res.data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Alarm bulunamadı</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Alarm bulunamadı</td></tr>';
       return;
     }
 
@@ -46,16 +46,20 @@ async function loadAlerts() {
     const user = getUser();
     const isAdmin = user && user.role === 'admin';
 
-    tbody.innerHTML = res.data.map(a => `
+    tbody.innerHTML = res.data.map(a => {
+      const details = a.details || {};
+      return `
       <tr>
         <td><span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span></td>
         <td>${typeNames[a.alert_type] || a.alert_type}</td>
+        <td>${details.device_name || '-'}</td>
+        <td>${details.student_id || '-'}</td>
         <td style="max-width:300px">${a.message}</td>
         <td style="white-space:nowrap">${new Date(a.created_at).toLocaleString('tr-TR')}</td>
         <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Aktif'}</span></td>
         <td>${!a.is_resolved && isAdmin ? `<button class="btn btn-success btn-sm" onclick="resolveAlert('${a.id}')">✓ Çöz</button>` : ''}</td>
       </tr>
-    `).join('');
+    `}).join('');
 
   } catch (err) {
     console.error('Load alerts error:', err);

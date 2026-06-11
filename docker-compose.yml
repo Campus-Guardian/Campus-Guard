@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  campusguard:
+    build: .
+    container_name: campusguard-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-change-me}
+      - JWT_EXPIRES_IN=7d
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}

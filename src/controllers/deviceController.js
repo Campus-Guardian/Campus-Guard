@@ -26,7 +26,12 @@ exports.registerDevice = async (req, res) => {
 // Cihaz listesi
 exports.getDevices = async (req, res) => {
   try {
-    let query = supabase.from('devices').select('*').order('created_at', { ascending: false });
+    let selectString = '*';
+    if (req.user.role === 'admin') {
+      selectString = '*, users(student_id, full_name)';
+    }
+
+    let query = supabase.from('devices').select(selectString).order('created_at', { ascending: false });
     
     // Normal kullanıcılar sadece kendi cihazlarını görür
     if (req.user.role !== 'admin') {
@@ -36,7 +41,18 @@ exports.getDevices = async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    res.json({ data });
+    // Flatten user info for easier consumption by the client
+    const enrichedData = data.map(d => {
+      const u = d.users;
+      delete d.users;
+      return {
+        ...d,
+        student_id: u ? u.student_id : null,
+        user_name: u ? u.full_name : null
+      };
+    });
+
+    res.json({ data: enrichedData });
   } catch (err) {
     console.error('Get devices error:', err);
     res.status(500).json({ error: 'Cihazlar alınamadı' });

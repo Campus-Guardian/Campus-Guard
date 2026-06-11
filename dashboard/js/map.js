@@ -1,7 +1,8 @@
 // CampusGuard - Leaflet Map — BTÜ Mimar Sinan Yerleşkesi
 let dashboardMap = null;
 let deviceMarkers = {};
-let zonePolygons = [];
+let zonePolygons = {};
+let zoneAlertCounters = {};
 
 const CAMPUS_CENTER = [40.1889, 29.1310];
 const CAMPUS_ZOOM = 17;
@@ -32,6 +33,9 @@ function initDashboardMap() {
   loadMapData();
   // Refresh every 15 seconds
   setInterval(loadMapData, 15000);
+  
+  // Set up socket listeners for zone alerts dynamic coloring
+  setupMapSocketListeners();
 }
 
 async function loadMapData() {
@@ -39,25 +43,37 @@ async function loadMapData() {
     // Load zones
     const zonesRes = await apiRequest('/zones');
     if (zonesRes && zonesRes.data) {
-      zonePolygons.forEach(p => dashboardMap.removeLayer(p));
-      zonePolygons = [];
+      Object.values(zonePolygons).forEach(p => dashboardMap.removeLayer(p));
+      zonePolygons = {};
 
       zonesRes.data.forEach(zone => {
         if (zone.polygon && zone.polygon.length >= 3) {
           const typeLabel = { normal: 'Normal', restricted: 'Kısıtlı', danger: 'Tehlikeli' };
+          
+          // Determine color based on active alert counter
+          let currentColor = zone.color || '#3b82f6';
+          if (zoneAlertCounters[zone.id] !== undefined && zoneAlertCounters[zone.id] < 5) {
+            currentColor = '#ef4444'; // Keep it red if alert is active
+          } else if (zoneAlertCounters[zone.id] === undefined) {
+            zoneAlertCounters[zone.id] = 5; // Default to clean state
+          }
+          
           const poly = L.polygon(zone.polygon, {
-            color: zone.color || '#3b82f6',
-            fillColor: zone.color || '#3b82f6',
+            color: currentColor,
+            fillColor: currentColor,
             fillOpacity: 0.15,
             weight: 2
           }).addTo(dashboardMap);
           poly.bindPopup(`<b>${zone.name}</b><br>Tip: ${typeLabel[zone.type] || zone.type}<br>Kapasite: ${zone.max_capacity}`);
-          zonePolygons.push(poly);
+          
+          poly.defaultColor = zone.color || '#3b82f6';
+          poly.zoneType = zone.type;
+          zonePolygons[zone.id] = poly;
         }
       });
     }
 
-    // Load live devices
+    // Load live devices (now includes active_alerts and student_id)
     const devRes = await apiRequest('/dashboard/live-devices');
     if (devRes && devRes.data) {
       Object.values(deviceMarkers).forEach(m => dashboardMap.removeLayer(m));
@@ -65,17 +81,37 @@ async function loadMapData() {
 
       devRes.data.forEach(dev => {
         if (dev.last_latitude && dev.last_longitude) {
+          // Alarm durumuna göre renk
+          let markerColor = '#3b82f6';  // varsayılan: mavi
+          let fillColor = '#60a5fa';
+          const alerts = dev.active_alerts || [];
+          
+          if (alerts.some(a => a.severity === 'critical')) {
+            markerColor = '#ef4444'; fillColor = '#f87171'; // kırmızı
+          } else if (alerts.some(a => a.type && a.type.includes('noise'))) {
+            markerColor = '#f97316'; fillColor = '#fb923c'; // turuncu
+          } else if (alerts.length > 0) {
+            markerColor = '#f59e0b'; fillColor = '#fbbf24'; // sarı
+          }
+
           const marker = L.circleMarker([dev.last_latitude, dev.last_longitude], {
             radius: 10,
-            color: '#3b82f6',
-            fillColor: '#60a5fa',
+            color: markerColor,
+            fillColor: fillColor,
             fillOpacity: 0.9,
             weight: 2
           }).addTo(dashboardMap);
+
+          const alertBadge = alerts.length > 0
+            ? `<br><span style="color:${markerColor};font-weight:bold">⚠️ ${alerts.length} aktif alarm</span>`
+            : '';
+          const studentInfo = dev.student_id ? `<br>Öğrenci: ${dev.student_id}` : '';
+
           marker.bindPopup(
-            `<b>${dev.device_name}</b><br>` +
-            `Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}<br>` +
-            `Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}`
+            `<b>${dev.device_name}</b>${studentInfo}` +
+            `<br>Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}` +
+            `<br>Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
+            alertBadge
           );
           deviceMarkers[dev.id] = marker;
         }
@@ -101,6 +137,42 @@ function updateDeviceOnMap(data) {
       radius: 10, color: '#3b82f6', fillColor: '#60a5fa', fillOpacity: 0.9, weight: 2
     }).addTo(dashboardMap);
     deviceMarkers[data.device_id] = marker;
+  }
+}
+
+function setupMapSocketListeners() {
+  if (typeof io !== 'undefined') {
+    const checkSocket = setInterval(() => {
+      if (window.socket) {
+        clearInterval(checkSocket);
+        
+        window.socket.on('new-alert', (alert) => {
+          if ((alert.alert_type === 'restricted_zone' || alert.alert_type === 'danger_zone') && alert.zone_id) {
+            zoneAlertCounters[alert.zone_id] = 0;
+            const poly = zonePolygons[alert.zone_id];
+            if (poly) {
+              poly.setStyle({ color: '#ef4444', fillColor: '#ef4444' });
+            }
+          }
+        });
+
+        window.socket.on('sensor-update', (data) => {
+          // Her yeni sensör verisinde, alarmı olan bölgelerin sayaçlarını artırıyoruz.
+          // 5 paket boyunca yeni alarm gelmezse rengi varsayılana döndürüyoruz.
+          Object.keys(zoneAlertCounters).forEach(zoneId => {
+            if (zoneAlertCounters[zoneId] < 5) {
+              zoneAlertCounters[zoneId]++;
+              if (zoneAlertCounters[zoneId] >= 5) {
+                const poly = zonePolygons[zoneId];
+                if (poly) {
+                  poly.setStyle({ color: poly.defaultColor, fillColor: poly.defaultColor });
+                }
+              }
+            }
+          });
+        });
+      }
+    }, 100);
   }
 }
 

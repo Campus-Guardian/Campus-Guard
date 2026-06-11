@@ -9,7 +9,6 @@ class AlertService {
   async createAlert(alertData) {
     try {
       // Duplikasyon ve spam engelleme:
-      // Eğer bu cihaz/bölge için zaten aynı tipte çözülmemiş (is_resolved = false) bir alarm varsa yeni alarm oluşturma.
       let checkQuery = supabase
         .from('alerts')
         .select('id')
@@ -27,6 +26,32 @@ class AlertService {
         return null;
       }
 
+      // Cihaz ve öğrenci bilgisi çek
+      let enrichedDetails = alertData.details || {};
+      if (alertData.device_id) {
+        try {
+          const { data: device } = await supabase
+            .from('devices')
+            .select('device_name, user_id')
+            .eq('id', alertData.device_id)
+            .single();
+          if (device) {
+            enrichedDetails.device_name = device.device_name;
+            if (device.user_id) {
+              const { data: user } = await supabase
+                .from('users')
+                .select('student_id, full_name')
+                .eq('id', device.user_id)
+                .single();
+              if (user) {
+                enrichedDetails.student_id = user.student_id;
+                enrichedDetails.user_name = user.full_name;
+              }
+            }
+          }
+        } catch (e) { /* lookup failed, continue */ }
+      }
+
       const { data, error } = await supabase
         .from('alerts')
         .insert({
@@ -35,7 +60,7 @@ class AlertService {
           alert_type: alertData.type,
           severity: alertData.severity,
           message: alertData.message,
-          details: alertData.details || null,
+          details: Object.keys(enrichedDetails).length > 0 ? enrichedDetails : null,
           latitude: alertData.latitude || null,
           longitude: alertData.longitude || null
         })
@@ -54,9 +79,7 @@ class AlertService {
           io.emit('new-alert', data);
           io.emit('alert-count-update');
         }
-      } catch (e) {
-        // Socket henüz hazır değilse sessizce devam et
-      }
+      } catch (e) {}
 
       return data;
     } catch (err) {

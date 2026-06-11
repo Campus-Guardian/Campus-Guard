@@ -56,17 +56,17 @@ async function startGPS() {
         // GPS accuracy (error radius in meters)
         const accuracy = location.coords.accuracy || 0;
 
-        // If GPS accuracy is poor (greater than 15 meters, e.g. indoors),
+        // If GPS accuracy is poor (greater than 25 meters, e.g. indoors),
         // we assume the speed is 0 to ignore drift spikes.
         let rawSpeed = 0;
-        if (accuracy <= 15 && location.coords.speed && location.coords.speed > 0) {
+        if (accuracy <= 25 && location.coords.speed && location.coords.speed > 0) {
           rawSpeed = parseFloat((location.coords.speed * 3.6).toFixed(1));
         }
 
         // 1. Adaptive Exponential Moving Average (EMA) smoothing based on GPS signal quality
-        let alpha = 0.35; // Default smoothing factor
-        if (accuracy > 20) {
-          alpha = 0.1; // Trust GPS speed less if uncertainty is high
+        let alpha = 0.5; // Default smoothing factor (responsive)
+        if (accuracy > 30) {
+          alpha = 0.15; // Trust GPS speed less if uncertainty is high
         }
 
         if (sensorData.speed === null || sensorData.speed === undefined || sensorData.speed === 0) {

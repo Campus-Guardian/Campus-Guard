@@ -75,18 +75,57 @@ exports.getTimeSeriesData = async (req, res) => {
   }
 };
 
-// Aktif cihazlar (harita için)
+// Aktif cihazlar (harita için) — öğrenci numarası ve aktif alarm bilgisi ile
 exports.getLiveDevices = async (req, res) => {
   try {
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
+    const { data: devices, error } = await supabase
       .from('devices')
       .select('id, device_name, last_latitude, last_longitude, last_seen, device_type, user_id')
       .eq('is_active', true)
       .gte('last_seen', fiveMinAgo);
 
     if (error) throw error;
-    res.json({ data: data || [] });
+    if (!devices || devices.length === 0) return res.json({ data: [] });
+
+    // Öğrenci bilgisi ve aktif alarm bilgisi çek
+    const userIds = [...new Set(devices.filter(d => d.user_id).map(d => d.user_id))];
+    const deviceIds = devices.map(d => d.id);
+
+    let usersMap = {};
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, student_id, full_name')
+        .in('id', userIds);
+      if (users) {
+        users.forEach(u => { usersMap[u.id] = u; });
+      }
+    }
+
+    // Aktif alarmlar
+    const { data: activeAlerts } = await supabase
+      .from('alerts')
+      .select('device_id, alert_type, severity')
+      .eq('is_resolved', false)
+      .in('device_id', deviceIds);
+
+    const alertMap = {};
+    if (activeAlerts) {
+      activeAlerts.forEach(a => {
+        if (!alertMap[a.device_id]) alertMap[a.device_id] = [];
+        alertMap[a.device_id].push({ type: a.alert_type, severity: a.severity });
+      });
+    }
+
+    const enrichedDevices = devices.map(d => ({
+      ...d,
+      student_id: d.user_id && usersMap[d.user_id] ? usersMap[d.user_id].student_id : null,
+      user_name: d.user_id && usersMap[d.user_id] ? usersMap[d.user_id].full_name : null,
+      active_alerts: alertMap[d.id] || []
+    }));
+
+    res.json({ data: enrichedDevices });
   } catch (err) {
     console.error('Live devices error:', err);
     res.status(500).json({ error: 'Aktif cihazlar alınamadı' });

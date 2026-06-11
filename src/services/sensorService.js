@@ -1,6 +1,7 @@
 const supabase = require('../config/supabase');
 const analysisService = require('./analysisService');
 const alertService = require('./alertService');
+const noiseCorrelationService = require('./noiseCorrelationService');
 const { getIO } = require('../socket/socketHandler');
 
 /**
@@ -61,6 +62,13 @@ class SensorService {
       // 5. Tespit edilen anomaliler için alarm oluştur
       if (anomalies.length > 0) {
         await alertService.createMultipleAlerts(anomalies, sensorData);
+      }
+
+      // Bölge bazlı gürültü korelasyon analizi yap
+      if (zones) {
+        noiseCorrelationService.processNoise(sensorData, zones).catch(err => {
+          console.error('Noise correlation execution failed:', err);
+        });
       }
 
       // 6. Kalabalık yoğunluğu güncelle

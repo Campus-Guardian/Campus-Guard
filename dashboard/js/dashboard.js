@@ -66,6 +66,36 @@ async function loadRecentAlerts() {
   }
 }
 
+async function downloadAlertsReport() {
+  try {
+    const token = localStorage.getItem('cg_token');
+    if (!token) return alert('Oturum sonlanmış, lütfen tekrar giriş yapın');
+
+    const response = await fetch(`${window.location.origin}/api/reports/alerts/csv`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'CSV raporu indirilemedi');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alerts_report_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
 // Auto-refresh every 30 seconds
 setInterval(() => {
   loadStats();

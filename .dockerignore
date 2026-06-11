@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+mobile-app
+Campus-Guard
+implementation_plan.md
+task.md
+walkthrough.md
+*.pdf
+Dockerfile
+docker-compose.yml
+.env

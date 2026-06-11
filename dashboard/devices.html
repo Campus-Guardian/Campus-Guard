@@ -16,6 +16,32 @@
     .danger-zones-list { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
     .dz-btn { font-size:11px; padding:4px 10px; border-radius:16px; border:1px solid var(--danger); color:var(--danger); background:var(--danger-light); cursor:pointer; }
     .dz-btn:hover { background:var(--danger); color:white; }
+    
+    /* Advanced Simulator Tab & Layout Styles */
+    .sim-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; gap: 8px; }
+    .sim-tab-btn { background: none; border: none; padding: 10px 16px; cursor: pointer; color: var(--text-muted); font-weight: 600; border-bottom: 2px solid transparent; font-size: 13px; transition: all 0.2s; }
+    .sim-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .sim-tab-content { display: none; }
+    .sim-tab-content.active { display: block; }
+    .sim-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .sim-card-panel { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .sim-panel-title { font-size: 12px; font-weight: bold; color: var(--primary); margin-bottom: 10px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sim-inline-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .sim-inline-row .form-group { flex: 1; margin-bottom: 0; }
+    .sim-inline-row .form-group label { font-size: 11px; margin-bottom: 4px; color: var(--text-secondary); }
+    
+    /* Active Simulators section */
+    .active-simulators-section { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+    .active-sim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .active-sim-header h4 { font-size: 13px; font-weight: bold; color: var(--text-primary); margin: 0; }
+    .active-simulators-container { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .active-sim-card { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 12px; }
+    .active-sim-info { display: flex; flex-direction: column; gap: 2px; }
+    .active-sim-name { font-weight: bold; color: var(--text-primary); }
+    .active-sim-stats { color: var(--text-muted); font-size: 11px; }
+    .active-sim-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; font-weight: bold; width: fit-content; text-transform: uppercase; }
+    .status-running { background: rgba(16,185,129,0.15); color: #10b981; }
+    .status-stopped { background: rgba(239,68,68,0.15); color: #ef4444; }
   </style>
 </head>
 <body>
@@ -53,10 +79,10 @@
             <div class="table-container">
               <table>
                 <thead>
-                  <tr><th>Cihaz Adı</th><th>Tip</th><th>Platform</th><th>Durum</th><th>Son Görülme</th><th>Konum</th><th>İşlem</th></tr>
+                  <tr><th>Cihaz Adı</th><th>Öğrenci No</th><th>Tip</th><th>Platform</th><th>Durum</th><th>Son Görülme</th><th>Konum</th><th>İşlem</th></tr>
                 </thead>
                 <tbody id="deviceTableBody">
-                  <tr><td colspan="7" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
+                  <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Yükleniyor...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -84,69 +110,158 @@
 
   <!-- Test Veri Simülatörü Modal -->
   <div class="modal-overlay" id="simModal">
-    <div class="modal" style="max-width:700px">
+    <div class="modal" style="max-width:750px">
       <div class="modal-header">
-        <h3>🧪 Test Verisi Simülatörü</h3>
+        <h3>🧪 BTÜ Gelişmiş Test Simülatörü</h3>
         <button class="modal-close" onclick="closeModal('simModal')">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- Cihaz seç -->
-        <div class="form-group">
-          <label>Cihaz Seç</label>
-          <select id="simDevice"><option value="">-- Cihaz Yükleniyor --</option></select>
+        
+        <!-- Simülatör Sekmeleri -->
+        <div class="sim-tabs">
+          <button class="sim-tab-btn active" onclick="switchSimTab('single')">📱 Tek Cihaz Gönderimi</button>
+          <button class="sim-tab-btn" onclick="switchSimTab('bulk')">👥 Toplu (Bulk) Simülasyon</button>
         </div>
 
-        <!-- Haritadan konum seç -->
-        <div class="form-group">
-          <label>📍 Haritadan Konum Seç (BTÜ)</label>
-          <div id="simMap"></div>
-          <div class="sim-coords" id="simCoordsDisplay">Haritaya tıklayarak konum seçin</div>
-          <!-- Tehlikeli bölgeye hızlı gönder -->
-          <div id="dangerZonesBtns" class="danger-zones-list"></div>
+        <!-- SEKME 1: Tek Cihaz Gönderimi -->
+        <div id="simTabSingle" class="sim-tab-content active">
+          <!-- Cihaz seç -->
+          <div class="form-group">
+            <label>Cihaz Seç</label>
+            <select id="simDevice"><option value="">-- Cihaz Yükleniyor --</option></select>
+          </div>
+
+          <!-- Haritadan konum seç -->
+          <div class="form-group">
+            <label>📍 Haritadan Başlangıç Konumu Seç</label>
+            <div id="simMap"></div>
+            <div class="sim-coords" id="simCoordsDisplay">Haritaya tıklayarak konum seçin</div>
+            <!-- Tehlikeli bölgeye hızlı gönder -->
+            <div id="dangerZonesBtns" class="danger-zones-list"></div>
+          </div>
+
+          <!-- Ayarlar Paneli (Süre, Aralık vb) -->
+          <div class="sim-card-panel">
+            <div class="sim-panel-title">Gönderim Parametreleri</div>
+            <div class="sim-inline-row">
+              <div class="form-group">
+                <label>Gönderim Aralığı (Saniye)</label>
+                <input type="number" id="simInterval" min="1" max="60" value="5">
+              </div>
+              <div class="form-group">
+                <label>Toplam Paket Sayısı (Süresiz için boş bırakın)</label>
+                <input type="number" id="simMaxPackets" min="1" value="50" placeholder="Örn: 50">
+              </div>
+              <div class="form-group" style="display:flex; align-items:center; padding-top:20px; justify-content: center;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight: 600;">
+                  <input type="checkbox" id="simWalkEffect" checked style="width:16px; height:16px;"> Simüle Hareket (Yürüme)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sensör sliders -->
+          <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Anlık Sensör Değerleri</div>
+
+            <div class="slider-row">
+              <label>🔊 Gürültü (dB)</label>
+              <input type="range" id="simNoise" min="30" max="120" value="55" oninput="updateSliderVal('simNoise','simNoiseVal',' dB')">
+              <span class="val" id="simNoiseVal">55 dB</span>
+            </div>
+            <div class="slider-row">
+              <label>💥 İvme X (m/s²)</label>
+              <input type="range" id="simAccX" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccX','simAccXVal',' m/s²')">
+              <span class="val" id="simAccXVal">0 m/s²</span>
+            </div>
+            <div class="slider-row">
+              <label>💥 İvme Y (m/s²)</label>
+              <input type="range" id="simAccY" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccY','simAccYVal',' m/s²')">
+              <span class="val" id="simAccYVal">0 m/s²</span>
+            </div>
+            <div class="slider-row">
+              <label>💥 İvme Z (m/s²)</label>
+              <input type="range" id="simAccZ" min="-40" max="40" value="9.8" step="0.5" oninput="updateSliderVal('simAccZ','simAccZVal',' m/s²')">
+              <span class="val" id="simAccZVal">9.8 m/s²</span>
+            </div>
+            <div class="slider-row">
+              <label>🏎️ Hız (km/h)</label>
+              <input type="range" id="simSpeed" min="0" max="100" value="0" oninput="updateSliderVal('simSpeed','simSpeedVal',' km/h')">
+              <span class="val" id="simSpeedVal">0 km/h</span>
+            </div>
+            <div class="slider-row">
+              <label>🔋 Batarya (%)</label>
+              <input type="range" id="simBattery" min="0" max="100" value="80" oninput="updateSliderVal('simBattery','simBatteryVal','%')">
+              <span class="val" id="simBatteryVal">80%</span>
+            </div>
+
+            <!-- Hızlı alarm preset'leri -->
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin:14px 0 10px;text-transform:uppercase;letter-spacing:.5px">Hızlı Preset</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-outline" onclick="applyPreset('noise')">🔊 Gürültü İhlali</button>
+              <button class="btn btn-sm btn-outline" onclick="applyPreset('motion')">💥 Anormal Hareket</button>
+              <button class="btn btn-sm btn-outline" onclick="applyPreset('speed')">🏎️ Hız İhlali</button>
+              <button class="btn btn-sm btn-outline" onclick="applyPreset('normal')">✅ Normal Gezinme</button>
+            </div>
+          </div>
+
+          <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="startSingleSim()" id="simSendBtn">📡 Simülasyonu Başlat</button>
+          </div>
         </div>
 
-        <!-- Sensör sliders -->
-        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Sensör Değerleri</div>
-
-          <div class="slider-row">
-            <label>🔊 Gürültü (dB)</label>
-            <input type="range" id="simNoise" min="30" max="120" value="55" oninput="updateSliderVal('simNoise','simNoiseVal',' dB')">
-            <span class="val" id="simNoiseVal">55 dB</span>
-          </div>
-          <div class="slider-row">
-            <label>💥 İvme X (m/s²)</label>
-            <input type="range" id="simAccX" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccX','simAccXVal',' m/s²')">
-            <span class="val" id="simAccXVal">0 m/s²</span>
-          </div>
-          <div class="slider-row">
-            <label>💥 İvme Y (m/s²)</label>
-            <input type="range" id="simAccY" min="-40" max="40" value="0" step="0.5" oninput="updateSliderVal('simAccY','simAccYVal',' m/s²')">
-            <span class="val" id="simAccYVal">0 m/s²</span>
-          </div>
-          <div class="slider-row">
-            <label>💥 İvme Z (m/s²)</label>
-            <input type="range" id="simAccZ" min="-40" max="40" value="9.8" step="0.5" oninput="updateSliderVal('simAccZ','simAccZVal',' m/s²')">
-            <span class="val" id="simAccZVal">9.8 m/s²</span>
-          </div>
-          <div class="slider-row">
-            <label>🏎️ Hız (km/h)</label>
-            <input type="range" id="simSpeed" min="0" max="100" value="0" oninput="updateSliderVal('simSpeed','simSpeedVal',' km/h')">
-            <span class="val" id="simSpeedVal">0 km/h</span>
-          </div>
-          <div class="slider-row">
-            <label>🔋 Batarya (%)</label>
-            <input type="range" id="simBattery" min="0" max="100" value="80" oninput="updateSliderVal('simBattery','simBatteryVal','%')">
-            <span class="val" id="simBatteryVal">80%</span>
+        <!-- SEKME 2: Toplu (Bulk) Simülasyon -->
+        <div id="simTabBulk" class="sim-tab-content">
+          <!-- Test Grubu Yönetimi -->
+          <div class="sim-card-panel">
+            <div class="sim-panel-title">Test Grubu Yönetimi (Veritabanı)</div>
+            <div class="sim-inline-row" style="align-items:flex-end;">
+              <div class="form-group" style="flex:2;">
+                <label>Eklenecek Rastgele Test Öğrencisi/Cihazı Sayısı</label>
+                <input type="number" id="bulkCount" min="1" max="100" value="10">
+              </div>
+              <button class="btn btn-outline" onclick="generateBulkDevices()" id="bulkGenerateBtn" style="padding:10px 16px;">👥 Cihazları Ata / Oluştur</button>
+              <button class="btn btn-danger" onclick="cleanupBulkDevices()" id="bulkCleanupBtn" style="padding:10px 16px;">🗑️ Grubu Temizle</button>
+            </div>
           </div>
 
-          <!-- Hızlı alarm preset'leri -->
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin:14px 0 10px;text-transform:uppercase;letter-spacing:.5px">Hızlı Preset</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-outline" onclick="applyPreset('noise')">🔊 Yüksek Gürültü</button>
-            <button class="btn btn-sm btn-outline" onclick="applyPreset('motion')">💥 Anormal Hareket</button>
-            <button class="btn btn-sm btn-outline" onclick="applyPreset('speed')">🏎️ Hız İhlali</button>
-            <button class="btn btn-sm btn-outline" onclick="applyPreset('normal')">✅ Normal</button>
+          <!-- Toplu Gönderim Ayarları -->
+          <div class="sim-card-panel">
+            <div class="sim-panel-title">Toplu Gönderim Ayarları</div>
+            <div class="sim-inline-row">
+              <div class="form-group">
+                <label>Gönderim Aralığı (Saniye)</label>
+                <input type="number" id="bulkInterval" min="1" max="60" value="5">
+              </div>
+              <div class="form-group">
+                <label>Toplam Paket Sayısı (Süresiz için boş bırakın)</label>
+                <input type="number" id="bulkMaxPackets" min="1" value="50" placeholder="Örn: 50">
+              </div>
+              <div class="form-group">
+                <label>Simülasyon Modu / Preset</label>
+                <select id="bulkPreset">
+                  <option value="normal">Rastgele Normal Yürüyüş</option>
+                  <option value="noise">Gürültülü Öğrenci Grubu (Desibel > 85)</option>
+                  <option value="speed">Hızlı Hareket (Hız ihlalleri)</option>
+                  <option value="danger">Restricted/Danger Bölge Girişi</option>
+                  <option value="random">Karışık (Rastgele anomaliler)</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+              <button class="btn btn-primary" onclick="startBulkSim()" id="bulkStartBtn">🚀 Toplu Simülasyonu Başlat</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- HER İKİ SEKMEDE ORTAK: Aktif Simülatörler Paneli -->
+        <div class="active-simulators-section">
+          <div class="active-sim-header">
+            <h4>Anlık Çalışan Test Simülatörleri (<span id="activeSimCount">0</span>)</h4>
+            <button class="btn btn-danger btn-sm" onclick="stopAllSimulators()" id="stopAllSimsBtn" style="display:none; font-size:11px; padding:3px 8px;">Tümünü Durdur</button>
+          </div>
+          <div class="active-simulators-container" id="activeSimsList">
+            <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">Çalışan aktif test verisi gönderimi yok.</div>
           </div>
         </div>
 
@@ -154,7 +269,6 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('simModal')">Kapat</button>
-        <button class="btn btn-primary" onclick="sendSimData()" id="simSendBtn">📡 Veri Gönder</button>
       </div>
     </div>
   </div>
