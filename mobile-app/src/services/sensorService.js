@@ -52,9 +52,45 @@ async function startGPS() {
       (location) => {
         sensorData.latitude = location.coords.latitude;
         sensorData.longitude = location.coords.longitude;
-        sensorData.speed = location.coords.speed && location.coords.speed > 0
-          ? parseFloat((location.coords.speed * 3.6).toFixed(1))
-          : 0;
+
+        // GPS accuracy (error radius in meters)
+        const accuracy = location.coords.accuracy || 0;
+
+        // If GPS accuracy is poor (greater than 15 meters, e.g. indoors),
+        // we assume the speed is 0 to ignore drift spikes.
+        let rawSpeed = 0;
+        if (accuracy <= 15 && location.coords.speed && location.coords.speed > 0) {
+          rawSpeed = parseFloat((location.coords.speed * 3.6).toFixed(1));
+        }
+
+        // 1. Adaptive Exponential Moving Average (EMA) smoothing based on GPS signal quality
+        let alpha = 0.35; // Default smoothing factor
+        if (accuracy > 20) {
+          alpha = 0.1; // Trust GPS speed less if uncertainty is high
+        }
+
+        if (sensorData.speed === null || sensorData.speed === undefined || sensorData.speed === 0) {
+          sensorData.speed = rawSpeed;
+        } else {
+          sensorData.speed = parseFloat((alpha * rawSpeed + (1 - alpha) * sensorData.speed).toFixed(1));
+        }
+
+        // 2. Accelerometer-based gating (stillness verification)
+        const ax = sensorData.acceleration_x || 0;
+        const ay = sensorData.acceleration_y || 0;
+        const az = sensorData.acceleration_z || 0;
+        const accelMag = Math.sqrt(ax * ax + ay * ay + az * az);
+        const dynamicAccel = Math.abs(accelMag - 9.81); // Exclude gravity
+
+        // If the device is stationary (very low dynamic acceleration), damp speed to 0
+        if (dynamicAccel < 0.25 && sensorData.speed > 0) {
+          if (sensorData.speed < 1.5) {
+            sensorData.speed = 0;
+          } else {
+            sensorData.speed = parseFloat((0.4 * sensorData.speed).toFixed(1));
+          }
+        }
+
         notify();
       }
     );
