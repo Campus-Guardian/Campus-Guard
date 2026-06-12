@@ -108,3 +108,58 @@ exports.getAlertStats = async (req, res) => {
     res.status(500).json({ error: 'İstatistikler alınamadı' });
   }
 };
+
+// Acil durum alarmı oluştur (mobil client'tan)
+exports.createEmergency = async (req, res) => {
+  try {
+    const { category } = req.body; // 'health' veya 'security'
+    const user = req.user;
+
+    if (!category || !['health', 'security'].includes(category)) {
+      return res.status(400).json({ error: 'Geçersiz kategori. "health" veya "security" olmalı.' });
+    }
+
+    const alertType = category === 'health' ? 'emergency_health' : 'emergency_security';
+    const categoryLabel = category === 'health' ? 'Sağlık' : 'Güvenlik';
+
+    const alertData = {
+      alert_type: alertType,
+      severity: 'critical',
+      message: `ACİL DURUM [${categoryLabel}]: ${user.student_id || user.email || 'Bilinmeyen kullanıcı'} tarafından tetiklendi.`,
+      is_resolved: false,
+      details: {
+        student_id: user.student_id || null,
+        user_id: user.id,
+        email: user.email || null,
+        category,
+        triggered_at: new Date().toISOString()
+      }
+    };
+
+    const { data, error } = await supabase
+      .from('alerts')
+      .insert(alertData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Socket.io ile acil durum bildirimi gönder
+    try {
+      const { getIO } = require('../socket/socketHandler');
+      const io = getIO();
+      if (io) {
+        io.emit('emergency-alert', data);
+        io.emit('new-alert', data);
+        io.emit('alert-count-update');
+      }
+    } catch (e) {
+      console.warn('Socket emit error:', e.message);
+    }
+
+    res.status(201).json({ message: 'Acil durum alarmı oluşturuldu', data });
+  } catch (err) {
+    console.error('Create emergency error:', err);
+    res.status(500).json({ error: 'Acil durum alarmı oluşturulamadı' });
+  }
+};

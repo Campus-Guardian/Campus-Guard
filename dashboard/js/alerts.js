@@ -40,16 +40,30 @@ async function loadAlerts() {
       'crowd_warning': '👥 Kalabalık (Uyarı)', 'crowd_critical': '👥 Kalabalık (Kritik)',
       'restricted_zone': '🚧 Kısıtlı Bölge', 'danger_zone': '☠️ Tehlikeli Bölge',
       'abnormal_motion': '💥 Anormal Hareket', 'speed_violation': '🏎️ Hız İhlali',
-      'inactivity': '😴 Hareketsizlik'
+      'inactivity': '😴 Hareketsizlik',
+      'emergency_health': '📌 🏥 Acil Sağlık', 'emergency_security': '📌 🔒 Acil Güvenlik'
     };
 
     const user = getUser();
     const isAdmin = user && user.role === 'admin';
 
-    tbody.innerHTML = res.data.map(a => {
+    // Emergency alarmları tablonun başına pin'le
+    const emergencies = res.data.filter(a =>
+      a.alert_type === 'emergency_health' || a.alert_type === 'emergency_security'
+    );
+    const others = res.data.filter(a =>
+      a.alert_type !== 'emergency_health' && a.alert_type !== 'emergency_security'
+    );
+    const sorted = [...emergencies, ...others];
+
+    tbody.innerHTML = sorted.map(a => {
       const details = a.details || {};
+      const isEmergency = a.alert_type === 'emergency_health' || a.alert_type === 'emergency_security';
+      const emergencyStyle = isEmergency
+        ? ' style="background:rgba(239,68,68,0.07);border-left:3px solid #ef4444;"'
+        : '';
       return `
-      <tr>
+      <tr class="${isEmergency ? 'emergency-pinned' : ''}"${emergencyStyle}>
         <td><span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span></td>
         <td>${typeNames[a.alert_type] || a.alert_type}</td>
         <td>${details.student_id || '-'}</td>
@@ -58,7 +72,7 @@ async function loadAlerts() {
         <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Çözülmemiş'}</span></td>
         <td>${!a.is_resolved && isAdmin ? `<button class="btn btn-success btn-sm" onclick="resolveAlert('${a.id}')">✓ Çöz</button>` : ''}</td>
       </tr>
-    `}).join('');
+    `;}).join('');
 
   } catch (err) {
     console.error('Load alerts error:', err);

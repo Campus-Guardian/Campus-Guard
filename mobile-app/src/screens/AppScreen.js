@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SensorCard from '../components/SensorCard';
 import StatusIndicator from '../components/StatusIndicator';
 import GradientButton from '../components/GradientButton';
+import EmergencyModal from '../components/EmergencyModal';
 import { mApi } from '../config/api';
 import { COLORS, RADIUS, SIZES, SPACING } from '../config/theme';
 import {
@@ -28,6 +29,7 @@ export default function AppScreen({ onLogout }) {
   const [statusState, setStatusState] = useState('ready');
   const [statusText, setStatusText] = useState('Bağlanıyor...');
   const [statusSub, setStatusSub] = useState('Sensörler başlatılıyor');
+  const [emergencyVisible, setEmergencyVisible] = useState(false);
   const [sensorDisplay, setSensorDisplay] = useState({
     location: 'Bekleniyor...',
     noise: '-- dB',
@@ -263,6 +265,14 @@ export default function AppScreen({ onLogout }) {
             variant={isRunning ? 'danger' : 'success'}
             onPress={handleToggleSensors}
           />
+          {/* Acil Durum Butonu */}
+          <TouchableOpacity
+            style={styles.emergencyBtn}
+            onPress={() => setEmergencyVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emergencyBtnText}>🚨 Acil Durum</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Student Info */}
@@ -274,6 +284,12 @@ export default function AppScreen({ onLogout }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Acil Durum Modal */}
+      <EmergencyModal
+        visible={emergencyVisible}
+        onClose={() => setEmergencyVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -342,5 +358,23 @@ const styles = StyleSheet.create({
     fontSize: SIZES.xs,
     color: COLORS.primary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  emergencyBtn: {
+    marginTop: SPACING.md,
+    backgroundColor: '#ef4444',
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  emergencyBtnText: {
+    color: 'white',
+    fontWeight: '800',
+    fontSize: SIZES.lg || 18,
+    letterSpacing: 0.5,
   },
 });
