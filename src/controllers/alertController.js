@@ -129,7 +129,7 @@ exports.createEmergency = async (req, res) => {
       is_resolved: false,
       details: {
         student_id: user.student_id || null,
-        user_id: user.id,
+        user_id: user.email - "@btu.edu.tr",
         email: user.email || null,
         category,
         triggered_at: new Date().toISOString()
