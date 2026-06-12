@@ -19,6 +19,24 @@ exports.registerDevice = async (req, res) => {
       targetUserId = targetUser.id;
     }
 
+    if (req.user.role !== 'admin' && student_id && student_id !== req.user.student_id) {
+      return res.status(403).json({ error: 'Baska bir ogrenci icin cihaz kaydedemezsiniz' });
+    }
+
+    let existingQuery = supabase
+      .from('devices')
+      .select('*')
+      .eq('user_id', targetUserId)
+      .eq('device_name', device_name || student_id);
+    existingQuery = platform
+      ? existingQuery.eq('platform', platform)
+      : existingQuery.is('platform', null);
+    const { data: existingDevice } = await existingQuery.maybeSingle();
+
+    if (existingDevice) {
+      return res.json({ message: 'Cihaz zaten kayitli', device: existingDevice });
+    }
+
     const { data, error } = await supabase
       .from('devices')
       .insert({

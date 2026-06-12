@@ -20,7 +20,7 @@
       <div id="alertBox" class="alert-msg"></div>
 
       <!-- Admin Login Form -->
-      <form id="loginForm" onsubmit="handleLogin(event)">
+      <form id="loginForm" data-submit-action="handleLogin">
         <div class="form-group">
           <label for="loginEmail">Email</label>
           <input type="email" id="loginEmail" placeholder="admin@btu.edu.tr" required>
@@ -35,5 +35,6 @@
   </div>
 
   <script src="js/auth.js"></script>
+  <script src="js/actions.js"></script>
 </body>
 </html>

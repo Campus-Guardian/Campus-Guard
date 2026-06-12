@@ -21,7 +21,7 @@
           <div class="user-avatar" id="userAvatar">A</div>
           <div><div class="user-name" id="userName">Admin</div><div class="user-role" id="userRole">admin</div></div>
         </div>
-        <button class="btn btn-outline btn-sm btn-full" onclick="logout()" style="margin-top:8px">Çıkış Yap</button>
+        <button class="btn btn-outline btn-sm btn-full" data-click-action="logout" style="margin-top:8px">Çıkış Yap</button>
       </div>
     </aside>
 
@@ -29,9 +29,9 @@
       <header class="header">
         <h1>🔔 Alarm Yönetimi</h1>
         <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
-          <button class="btn btn-outline btn-sm" onclick="resolveAllAlerts()" style="border-color:var(--danger); color:var(--danger)">✓ Tümünü Çöz</button>
+          <button class="btn btn-outline btn-sm" data-click-action="resolveAllAlerts" style="border-color:var(--danger); color:var(--danger)">✓ Tümünü Çöz</button>
           <div class="filters">
-            <select id="filterType" onchange="loadAlerts()">
+            <select id="filterType" data-change-action="loadAlerts">
               <option value="">Tüm Tipler</option>
               <option value="noise_warning">Gürültü (Uyarı)</option>
               <option value="noise_critical">Gürültü (Kritik)</option>
@@ -42,14 +42,14 @@
               <option value="abnormal_motion">Anormal Hareket</option>
               <option value="speed_violation">Hız İhlali</option>
             </select>
-            <select id="filterSeverity" onchange="loadAlerts()">
+            <select id="filterSeverity" data-change-action="loadAlerts">
               <option value="">Tüm Seviyeler</option>
               <option value="critical">Kritik</option>
               <option value="high">Yüksek</option>
               <option value="medium">Orta</option>
               <option value="low">Düşük</option>
             </select>
-            <select id="filterResolved" onchange="loadAlerts()">
+            <select id="filterResolved" data-change-action="loadAlerts">
               <option value="false">Çözülmemiş</option>
               <option value="true">Çözülmüş</option>
               <option value="">Tümü</option>
@@ -94,8 +94,9 @@
     </main>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/actions.js"></script>
   <script src="js/socket.js"></script>
   <script src="js/alerts.js"></script>
 </body>

@@ -3,3 +3,5 @@ node_modules/
 *.log
 .DS_Store
 Campus-Guard.env
+coverage/
+mobile-app/mobile-app-export-test/

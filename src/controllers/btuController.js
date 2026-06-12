@@ -1,9 +1,9 @@
 const axios = require('axios');
 const https = require('https');
 const crypto = require('crypto');
+const { createRegistrationTicket } = require('../services/tokenService');
 
-// Self-signed sertifika sorunlarını aşmak için
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+const httpsAgent = new https.Agent({ rejectUnauthorized: true });
 
 const BTU_BASE = 'https://akillikart.btu.edu.tr:446';
 
@@ -161,11 +161,6 @@ exports.verifyStudent = async (req, res) => {
         if (nameMatch && nameMatch[1]) {
           // &nbsp; gibi HTML karakterlerini normal boşluğa çevir
           nameHint = nameMatch[1].replace(/&nbsp;/ig, ' ').trim();
-          console.log('BTU kullanıcı adı ipucu bulundu:', nameHint);
-        } else {
-          console.log('BTU ana sayfasından isim çıkarılamadı');
-          // Debug: HTML'in bir kısmını logla
-          console.log('Home HTML snippet:', homeHtml.substring(0, 2000));
         }
       } catch (homeErr) {
         console.error('BTU ana sayfa hatası:', homeErr.message);
@@ -174,11 +169,12 @@ exports.verifyStudent = async (req, res) => {
       // Session'ı temizle
       sessionStore.delete(sessionId);
 
-      // Doğrulama başarılı
+      const registrationTicket = await createRegistrationTicket(sicilNo, nameHint);
       return res.json({
         verified: true,
         message: 'Öğrenci numarası doğrulandı',
-        nameHint: nameHint || ''
+        nameHint: nameHint || '',
+        registrationTicket
       });
     } else {
       // Session'ı temizle

@@ -1,47 +1,67 @@
-// CampusGuard Mobile - Auth Service
-import { M_API, setAuth, clearAuth, getToken } from '../config/api';
+import { M_API, setAuth, clearAuth, getRefreshToken } from '../config/api';
+
+async function parse(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || fallback);
+  return data;
+}
 
 export async function login(studentId, password) {
-  const res = await fetch(M_API + '/auth/login', {
+  const data = await parse(await fetch(M_API + '/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ student_id: studentId, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Giriş başarısız');
-  await setAuth(data.token, data.user);
+  }), 'Giris basarisiz');
+  await setAuth(data.access_token, data.refresh_token, data.user);
   return data;
 }
 
 export async function loadCaptcha() {
-  const res = await fetch(M_API + '/btu/captcha');
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'CAPTCHA yüklenemedi');
+  const data = await parse(await fetch(M_API + '/btu/captcha'), 'CAPTCHA yuklenemedi');
   return { sessionId: data.sessionId, captchaImage: data.captchaImage };
 }
 
 export async function verifyStudent(sessionId, sicilNo, captcha) {
-  const res = await fetch(M_API + '/btu/verify', {
+  const data = await parse(await fetch(M_API + '/btu/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, sicilNo, captcha }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Doğrulama başarısız');
-  return data;
+  }), 'Dogrulama basarisiz');
+
+  const registrationTicket = data.registrationTicket || data.registration_ticket;
+  if (data.verified && !registrationTicket) {
+    throw new Error(
+      'Sunucu eski bir surum calistiriyor. CampusGuard backend guncellenmeden kayit tamamlanamaz.'
+    );
+  }
+
+  return {
+    ...data,
+    registrationTicket,
+    nameHint: data.nameHint || data.name_hint || '',
+  };
 }
 
-export async function register(studentId, password) {
-  const res = await fetch(M_API + '/auth/register', {
+export async function register(studentId, password, registrationTicket) {
+  return parse(await fetch(M_API + '/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ student_id: studentId, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Kayıt başarısız');
-  return data;
+    body: JSON.stringify({
+      student_id: studentId,
+      password,
+      registration_ticket: registrationTicket,
+    }),
+  }), 'Kayit basarisiz');
 }
 
 export async function logout() {
+  const refreshToken = await getRefreshToken();
+  if (refreshToken) {
+    await fetch(M_API + '/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }).catch(() => {});
+  }
   await clearAuth();
 }

@@ -2,21 +2,23 @@
   "expo": {
     "name": "CampusGuard Mobil",
     "slug": "campusguard-mobil",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0a0f1e",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "tr.edu.btu.campusguard",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır.",
-        "NSMicrophoneUsageDescription": "CampusGuard çevresel gürültü seviyesini ölçmek için mikrofon kullanır.",
-        "NSMotionUsageDescription": "CampusGuard hareket verilerini sensör olarak toplar."
+        "NSLocationWhenInUseUsageDescription": "CampusGuard konumunuzu kampus guvenligi icin kullanir.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "CampusGuard arka planda bolge girislerini algilamak icin konumunuzu kullanir.",
+        "NSMicrophoneUsageDescription": "CampusGuard yalnizca cihazda desibel tahmini yapmak icin mikrofonu kullanir.",
+        "NSMotionUsageDescription": "CampusGuard dusme ve anormal hareketleri algilamak icin hareket verisini kullanir."
       }
     },
     "android": {
+      "package": "tr.edu.btu.campusguard",
       "adaptiveIcon": {
         "backgroundColor": "#0a0f1e",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,29 +28,68 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACTIVITY_RECOGNITION",
         "RECORD_AUDIO",
-        "BATTERY_STATS"
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "CampusGuard konum verilerinizi kampüs güvenliği için kullanır."
+          "locationAlwaysAndWhenInUsePermission": "CampusGuard arka planda bolge girislerini algilamak icin konumunuzu kullanir.",
+          "motionUsagePermission": "CampusGuard anormal hareketleri algilamak icin hareket verisini kullanir.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isAndroidMotionActivityEnabled": true
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
-          "microphonePermission": "CampusGuard çevresel gürültü seviyesini ölçmek için mikrofon kullanır."
+          "microphonePermission": "CampusGuard yalnizca cihazda desibel tahmini yapmak icin mikrofonu kullanir.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": true,
+          "enableBackgroundPlayback": false
         }
       ],
       [
-        "expo-sensors"
-      ]
-    ]
+        "expo-notifications",
+        {
+          "defaultChannel": "campus-safety"
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      "expo-sqlite",
+      "expo-sensors"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://campus-guard-7rq8.onrender.com",
+      "eas": {
+        "projectId": "4c0ae6d3-2561-4fbf-a7b4-7f82712f6d18"
+      }
+    },
+    "owner": "yusufemreozdemir"
   }
 }

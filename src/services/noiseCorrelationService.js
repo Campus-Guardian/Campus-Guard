@@ -1,114 +1,104 @@
+const supabase = require('../config/supabase');
 const analysisService = require('./analysisService');
 const alertService = require('./alertService');
-const supabase = require('../config/supabase');
-const { THRESHOLDS } = require('../config/zones');
+
+function countQualifiedDevices(rows) {
+  return new Set((rows || []).map((item) => item.device_id)).size;
+}
 
 class NoiseCorrelationService {
-  constructor() {
-    // In-memory buffer: Map<zone_id, Map<device_id, { highCount, lastTimestamp }>>
-    this.noiseBuffers = new Map();
-    // Keep track of last correlation alert timestamp per zone to prevent spamming Map<zone_id, timestamp>
-    this.lastAlertTimestamps = new Map();
+  async process(event, zones, settings) {
+    const level = Math.max(event.noise_level ?? -Infinity, event.noise_peak ?? -Infinity);
+    if (event.latitude == null || event.longitude == null || !Number.isFinite(level)) return [];
+
+    const alerts = [];
+    for (const zone of zones) {
+      if (!analysisService.isPointInPolygon([event.latitude, event.longitude], zone.polygon)) continue;
+      const now = new Date(event.measured_at);
+      const high = level >= settings.noise_threshold_db;
+      const { error: counterError } = await supabase.rpc('cg_record_noise_sample', {
+        p_zone_id: zone.id,
+        p_device_id: event.device_id,
+        p_measured_at: event.measured_at,
+        p_is_high: high,
+        p_window_seconds: settings.noise_window_seconds,
+      });
+      if (counterError) throw counterError;
+
+      const windowStart = new Date(now.getTime() - settings.noise_window_seconds * 1000).toISOString();
+      const { data: noisyDevices } = await supabase
+        .from('noise_zone_device_state')
+        .select('device_id')
+        .eq('zone_id', zone.id)
+        .gte('last_high_at', windowStart)
+        .gte('high_reading_count', settings.noise_min_readings);
+
+      const uniqueCount = countQualifiedDevices(noisyDevices);
+      if (uniqueCount < settings.noise_min_devices) continue;
+
+      const dedupeKey = `noise-zone:${zone.id}`;
+      const { data: active } = await supabase
+        .from('alerts')
+        .select('last_seen')
+        .eq('dedupe_key', dedupeKey)
+        .eq('is_resolved', false)
+        .maybeSingle();
+      const { data: lastResolved } = active ? { data: null } : await supabase
+        .from('alerts')
+        .select('resolved_at')
+        .eq('dedupe_key', dedupeKey)
+        .eq('is_resolved', true)
+        .order('resolved_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const inCooldown = lastResolved?.resolved_at
+        && now - new Date(lastResolved.resolved_at) < settings.noise_cooldown_seconds * 1000;
+      const recentlyTouched = active?.last_seen
+        && now - new Date(active.last_seen) < 10000;
+
+      if (!inCooldown && !recentlyTouched) {
+        alerts.push(await alertService.createOrUpdate({
+          dedupe_key: dedupeKey,
+          zone_id: zone.id,
+          type: 'noise_critical',
+          severity: 'critical',
+          message: `${zone.name} bolgesinde coklu cihaz gurultu alarmi`,
+          details: {
+            zone_name: zone.name,
+            noisy_devices_count: uniqueCount,
+            threshold_db: settings.noise_threshold_db,
+            window_seconds: settings.noise_window_seconds,
+          },
+          latitude: event.latitude,
+          longitude: event.longitude,
+        }));
+      }
+    }
+    return alerts.filter(Boolean);
   }
 
-  /**
-   * Process incoming sensor data and verify noise correlation in the corresponding zones.
-   * @param {Object} sensorData - The processed sensor packet.
-   * @param {Array} zones - List of active campus zones.
-   */
-  async processNoise(sensorData, zones) {
-    try {
-      const { device_id, latitude, longitude, noise_level } = sensorData;
-      if (!device_id || !latitude || !longitude || noise_level == null) return;
+  async resolveStale(settings) {
+    const staleBefore = new Date(Date.now() - settings.noise_resolve_seconds * 1000).toISOString();
+    const { data: alerts } = await supabase
+      .from('alerts')
+      .select('dedupe_key, zone_id')
+      .eq('alert_type', 'noise_critical')
+      .eq('is_resolved', false)
+      .not('zone_id', 'is', null);
 
-      // Find which active zones this device is currently inside
-      const activeZonesForDevice = [];
-      for (const zone of zones) {
-        if (zone.polygon && Array.isArray(zone.polygon)) {
-          if (analysisService.isPointInPolygon([latitude, longitude], zone.polygon)) {
-            activeZonesForDevice.push(zone);
-          }
-        }
+    for (const alert of alerts || []) {
+      const { count } = await supabase
+        .from('noise_zone_device_state')
+        .select('*', { count: 'exact', head: true })
+        .eq('zone_id', alert.zone_id)
+        .gte('last_high_at', staleBefore)
+        .gte('high_reading_count', settings.noise_min_readings);
+      if ((count || 0) < settings.noise_min_devices) {
+        await alertService.resolve(alert.dedupe_key, null, 'noise_quorum_cleared');
       }
-
-      // If device is not in any zone, skip
-      if (activeZonesForDevice.length === 0) return;
-
-      const now = Date.now();
-      const NOISE_THRESHOLD = THRESHOLDS.NOISE_WARNING; // 70 dB
-
-      for (const zone of activeZonesForDevice) {
-        // Get or initialize zone buffer
-        if (!this.noiseBuffers.has(zone.id)) {
-          this.noiseBuffers.set(zone.id, new Map());
-        }
-        const zoneBuffer = this.noiseBuffers.get(zone.id);
-
-        // Update count for this device
-        if (noise_level >= NOISE_THRESHOLD) {
-          let devEntry = zoneBuffer.get(device_id);
-          if (!devEntry || (now - devEntry.lastTimestamp > 30000)) {
-            // Reset if no recent data (stale)
-            devEntry = { highCount: 0 };
-          }
-          devEntry.highCount++;
-          devEntry.lastTimestamp = now;
-          zoneBuffer.set(device_id, devEntry);
-        } else {
-          // If noise drops below threshold, reset the consecutive high count
-          zoneBuffer.set(device_id, { highCount: 0, lastTimestamp: now });
-        }
-
-        // Clean up stale device entries (older than 30s) in this zone buffer
-        for (const [devId, entry] of zoneBuffer.entries()) {
-          if (now - entry.lastTimestamp > 30000) {
-            zoneBuffer.delete(devId);
-          }
-        }
-
-        // Count how many different devices have >= 5 consecutive high noise packets
-        let highCountDevices = 0;
-        for (const entry of zoneBuffer.values()) {
-          if (entry.highCount >= 5) {
-            highCountDevices++;
-          }
-        }
-
-        // Correlation alert condition: at least 3 devices with >= 5 packets
-        if (highCountDevices >= 3) {
-          const lastAlertTime = this.lastAlertTimestamps.get(zone.id) || 0;
-          
-          // Anti-spam rule: trigger at most once every 60 seconds per zone
-          if (now - lastAlertTime > 60000) {
-            this.lastAlertTimestamps.set(zone.id, now);
-            
-            // Clear buffer for this zone to avoid duplicate alarms on next ticks
-            zoneBuffer.clear();
-
-            console.log(`[Noise Correlation] Zone alert triggered for: ${zone.name}. Active noisy devices count: ${highCountDevices}`);
-
-            // Create and log correlation alert
-            await alertService.createAlert({
-              device_id: null, // Zone alert, not tied to a single device
-              zone_id: zone.id,
-              type: 'noise_critical',
-              severity: 'critical',
-              message: `🚨 "${zone.name}" bölgesinde gürültü alarmı! En az 3 farklı cihazdan ardışık yüksek gürültü paketleri (>= 5 adet) algılandı.`,
-              details: {
-                zone_name: zone.name,
-                noisy_devices_count: highCountDevices,
-                threshold: NOISE_THRESHOLD
-              },
-              latitude: latitude,
-              longitude: longitude
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Noise correlation calculation failed:', err);
     }
   }
 }
 
 module.exports = new NoiseCorrelationService();
+module.exports.countQualifiedDevices = countQualifiedDevices;

@@ -103,16 +103,15 @@ CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_devices_active ON devices(is_active);
 CREATE INDEX IF NOT EXISTS idx_crowd_density_zone_time ON crowd_density(zone_id, timestamp DESC);
 
--- RLS devre dışı (auth backend'de yönetiliyor)
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE devices DISABLE ROW LEVEL SECURITY;
-ALTER TABLE sensor_data DISABLE ROW LEVEL SECURITY;
-ALTER TABLE zones DISABLE ROW LEVEL SECURITY;
-ALTER TABLE alerts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE crowd_density DISABLE ROW LEVEL SECURITY;
+-- Direct client access is disabled; only the backend service role is used.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sensor_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE zones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE crowd_density ENABLE ROW LEVEL SECURITY;
 
--- Varsayılan admin kullanıcısı (şifre: admin123)
--- bcrypt hash for 'admin123'
-INSERT INTO users (email, password_hash, full_name, role) 
-VALUES ('admin@campusguard.com', '$2a$10$JOspvefD8KZk4abF/srJset96uRzUbBUqI/OGZzFoti11y57XKCHG', 'Admin', 'admin')
-ON CONFLICT (email) DO NOTHING;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+
+-- No default credentials are created. Provision the first admin explicitly.
+-- Apply every migration in database/migrations after this baseline schema.

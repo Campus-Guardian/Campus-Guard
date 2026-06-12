@@ -1,52 +1,84 @@
-// CampusGuard Mobile - API Configuration
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 
-// Backend sunucu URL'si (Render deployment)
-const API_BASE_URL = 'https://campus-guard-7rq8.onrender.com';
-
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl
+  || 'https://campus-guard-7rq8.onrender.com';
 export const M_API = API_BASE_URL + '/api';
 
+const ACCESS_KEY = 'cg_access_token';
+const REFRESH_KEY = 'cg_refresh_token';
+
 export async function getToken() {
-  return await AsyncStorage.getItem('cg_m_token');
+  return SecureStore.getItemAsync(ACCESS_KEY);
+}
+
+export async function getRefreshToken() {
+  return SecureStore.getItemAsync(REFRESH_KEY);
 }
 
 export async function getUser() {
   try {
-    const u = await AsyncStorage.getItem('cg_m_user');
-    return u ? JSON.parse(u) : null;
+    const value = await AsyncStorage.getItem('cg_m_user');
+    return value ? JSON.parse(value) : null;
   } catch {
     return null;
   }
 }
 
-export async function setAuth(token, user) {
-  await AsyncStorage.setItem('cg_m_token', token);
-  await AsyncStorage.setItem('cg_m_user', JSON.stringify(user));
+export async function setAuth(accessToken, refreshToken, user) {
+  await Promise.all([
+    SecureStore.setItemAsync(ACCESS_KEY, accessToken),
+    SecureStore.setItemAsync(REFRESH_KEY, refreshToken),
+    AsyncStorage.setItem('cg_m_user', JSON.stringify(user)),
+  ]);
 }
 
 export async function clearAuth() {
-  await AsyncStorage.multiRemove(['cg_m_token', 'cg_m_user', 'cg_m_device']);
+  await Promise.all([
+    SecureStore.deleteItemAsync(ACCESS_KEY),
+    SecureStore.deleteItemAsync(REFRESH_KEY),
+    AsyncStorage.multiRemove(['cg_m_user', 'cg_m_device']),
+  ]);
 }
 
-export async function mHeaders() {
+async function refreshSession() {
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) return false;
+  const response = await fetch(M_API + '/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  if (!response.ok) return false;
+  const data = await response.json();
+  await setAuth(data.access_token, data.refresh_token, data.user);
+  return true;
+}
+
+export async function mApi(url, options = {}, allowRefresh = true) {
   const token = await getToken();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + token,
-  };
-}
+  const response = await fetch(M_API + url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
 
-export async function mApi(url, opts = {}) {
-  const headers = { ...(await mHeaders()), ...opts.headers };
-  const res = await fetch(M_API + url, { ...opts, headers });
-  const data = await res.json();
-  if (res.status === 401) {
-    await clearAuth();
-    return null;
+  if (response.status === 401 && allowRefresh && await refreshSession()) {
+    return mApi(url, options, false);
   }
-  if (!res.ok) {
-    const details = data.details ? `: ${data.details.join(', ')}` : '';
-    throw new Error((data.error || 'Hata') + details);
+
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    await clearAuth();
+    throw new Error('Oturum suresi doldu');
+  }
+  if (!response.ok) {
+    const details = Array.isArray(data.details) ? `: ${data.details.join(', ')}` : '';
+    throw new Error((data.error || 'Istek basarisiz') + details);
   }
   return data;
 }

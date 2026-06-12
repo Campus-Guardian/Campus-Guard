@@ -1,5 +1,5 @@
 // CampusGuard Mobile - Register Screen (2-step: BTU verify + password)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, Image, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard,
@@ -16,21 +16,29 @@ export default function RegisterScreen({ onGoToLogin, onRegistered }) {
   const [captchaInput, setCaptchaInput] = useState('');
   const [sessionId, setSessionId] = useState(null);
   const [captchaImage, setCaptchaImage] = useState(null);
-  const [verifiedStudentId, setVerifiedStudentId] = useState(null);
+  const [verification, setVerification] = useState(null);
   const [nameHint, setNameHint] = useState(null);
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [alert, setAlert] = useState({ message: '', type: '', visible: false });
   const [verifying, setVerifying] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const alertTimerRef = useRef(null);
 
   useEffect(() => {
     fetchCaptcha();
+    return () => {
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    };
   }, []);
 
   const showAlert = (message, type) => {
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
     setAlert({ message, type, visible: true });
-    setTimeout(() => setAlert(prev => ({ ...prev, visible: false })), 5000);
+    alertTimerRef.current = setTimeout(() => {
+      setAlert(prev => ({ ...prev, visible: false }));
+      alertTimerRef.current = null;
+    }, 5000);
   };
 
   const fetchCaptcha = async () => {
@@ -64,7 +72,10 @@ export default function RegisterScreen({ onGoToLogin, onRegistered }) {
     try {
       const data = await verifyStudent(sessionId, studentId.trim(), captchaInput.trim());
       if (data.verified) {
-        setVerifiedStudentId(studentId.trim());
+        setVerification({
+          studentId: studentId.trim(),
+          registrationTicket: data.registrationTicket,
+        });
         if (data.nameHint) {
           setNameHint(data.nameHint);
         }
@@ -83,23 +94,27 @@ export default function RegisterScreen({ onGoToLogin, onRegistered }) {
   };
 
   const handleRegister = async () => {
-    if (!password || password.length < 6) {
-      return showAlert('Şifre en az 6 karakter olmalı', 'error');
+    if (!password || password.length < 8) {
+      return showAlert('Şifre en az 8 karakter olmalı', 'error');
     }
     if (password !== passwordConfirm) {
       return showAlert('Şifreler eşleşmiyor', 'error');
     }
-    if (!verifiedStudentId) {
+    if (!verification?.studentId || !verification?.registrationTicket) {
       return showAlert('Önce öğrenci numaranızı doğrulayın', 'error');
     }
 
     setRegistering(true);
     try {
-      await register(verifiedStudentId, password);
+      await register(
+        verification.studentId,
+        password,
+        verification.registrationTicket
+      );
       showAlert('Kayıt başarılı! Giriş yapabilirsiniz.', 'success');
       setTimeout(() => {
         resetForm();
-        onRegistered(verifiedStudentId);
+        onRegistered(verification.studentId);
       }, 2000);
     } catch (err) {
       showAlert(err.message, 'error');
@@ -116,7 +131,7 @@ export default function RegisterScreen({ onGoToLogin, onRegistered }) {
     setPasswordConfirm('');
     setSessionId(null);
     setCaptchaImage(null);
-    setVerifiedStudentId(null);
+    setVerification(null);
     setNameHint(null);
   };
 
@@ -227,7 +242,7 @@ export default function RegisterScreen({ onGoToLogin, onRegistered }) {
                     <Text style={styles.label}>Şifre Belirleyin</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="En az 6 karakter"
+                      placeholder="En az 8 karakter"
                       placeholderTextColor={COLORS.muted}
                       value={password}
                       onChangeText={setPassword}

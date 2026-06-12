@@ -1,15 +1,17 @@
 const supabase = require('../config/supabase');
+const { emitDashboard, emitDevice } = require('../socket/socketHandler');
 
-// Alarm listesi
 exports.getAlerts = async (req, res) => {
   try {
     const { limit = 50, offset = 0, type, severity, resolved } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const safeOffset = Math.max(Number(offset) || 0, 0);
 
     let query = supabase
       .from('alerts')
       .select('*')
-      .order('created_at', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+      .order('last_seen', { ascending: false })
+      .range(safeOffset, safeOffset + safeLimit - 1);
 
     if (type) query = query.eq('alert_type', type);
     if (severity) query = query.eq('severity', severity);
@@ -17,40 +19,40 @@ exports.getAlerts = async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
-
-    res.json({ data, count: data.length });
-  } catch (err) {
-    console.error('Get alerts error:', err);
-    res.status(500).json({ error: 'Alarmlar alınamadı' });
+    res.json({ data: data || [], count: data ? data.length : 0 });
+  } catch (error) {
+    console.error('Get alerts error:', error);
+    res.status(500).json({ error: 'Alarmlar alinamadi' });
   }
 };
 
-// Alarmı çöz
 exports.resolveAlert = async (req, res) => {
   try {
-    const { id } = req.params;
     const { data, error } = await supabase
       .from('alerts')
       .update({
         is_resolved: true,
         resolved_by: req.user.id,
-        resolved_at: new Date().toISOString()
+        resolved_at: new Date().toISOString(),
+        resolution_reason: 'manual',
       })
-      .eq('id', id)
+      .eq('id', req.params.id)
+      .eq('is_resolved', false)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Alarm bulunamadı' });
+    if (!data) return res.status(404).json({ error: 'Aktif alarm bulunamadi' });
 
-    res.json({ message: 'Alarm çözüldü', data });
-  } catch (err) {
-    console.error('Resolve alert error:', err);
-    res.status(500).json({ error: 'Alarm çözülemedi' });
+    emitDashboard('alert-resolved', data);
+    emitDevice(data.device_id, 'alert-resolved', data);
+    return res.json({ message: 'Alarm cozuldu', data });
+  } catch (error) {
+    console.error('Resolve alert error:', error);
+    return res.status(500).json({ error: 'Alarm cozulemedi' });
   }
 };
 
-// Tüm alarmları çöz
 exports.resolveAllAlerts = async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -58,53 +60,44 @@ exports.resolveAllAlerts = async (req, res) => {
       .update({
         is_resolved: true,
         resolved_by: req.user.id,
-        resolved_at: new Date().toISOString()
+        resolved_at: new Date().toISOString(),
+        resolution_reason: 'manual_bulk',
       })
       .eq('is_resolved', false)
       .select();
 
     if (error) throw error;
-
-    // Trigger real-time socket.io notification
-    try {
-      const { getIO } = require('../socket/socketHandler');
-      const io = getIO();
-      if (io) {
-        io.emit('alert-count-update');
-        io.emit('all-alerts-resolved');
-      }
-    } catch (e) {}
-
-    res.json({ message: 'Tüm alarmlar çözüldü', count: data ? data.length : 0 });
-  } catch (err) {
-    console.error('Resolve all alerts error:', err);
-    res.status(500).json({ error: 'Alarmlar çözülemedi' });
+    emitDashboard('all-alerts-resolved', { count: data ? data.length : 0 });
+    return res.json({ message: 'Tum alarmlar cozuldu', count: data ? data.length : 0 });
+  } catch (error) {
+    console.error('Resolve all alerts error:', error);
+    return res.status(500).json({ error: 'Alarmlar cozulemedi' });
   }
 };
 
-// Alarm istatistikleri
 exports.getAlertStats = async (req, res) => {
   try {
-    const { data: all } = await supabase.from('alerts').select('alert_type, severity, is_resolved');
-    
+    const { data: all, error } = await supabase
+      .from('alerts')
+      .select('alert_type, severity, is_resolved');
+    if (error) throw error;
+
+    const alerts = all || [];
     const stats = {
-      total: all ? all.length : 0,
-      active: all ? all.filter(a => !a.is_resolved).length : 0,
-      resolved: all ? all.filter(a => a.is_resolved).length : 0,
+      total: alerts.length,
+      active: alerts.filter((alert) => !alert.is_resolved).length,
+      resolved: alerts.filter((alert) => alert.is_resolved).length,
       bySeverity: {},
-      byType: {}
+      byType: {},
     };
 
-    if (all) {
-      all.forEach(a => {
-        stats.bySeverity[a.severity] = (stats.bySeverity[a.severity] || 0) + 1;
-        stats.byType[a.alert_type] = (stats.byType[a.alert_type] || 0) + 1;
-      });
+    for (const alert of alerts) {
+      stats.bySeverity[alert.severity] = (stats.bySeverity[alert.severity] || 0) + 1;
+      stats.byType[alert.alert_type] = (stats.byType[alert.alert_type] || 0) + 1;
     }
-
     res.json(stats);
-  } catch (err) {
-    console.error('Alert stats error:', err);
-    res.status(500).json({ error: 'İstatistikler alınamadı' });
+  } catch (error) {
+    console.error('Alert stats error:', error);
+    res.status(500).json({ error: 'Istatistikler alinamadi' });
   }
 };

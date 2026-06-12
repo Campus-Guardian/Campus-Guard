@@ -1,105 +1,75 @@
 const supabase = require('../config/supabase');
-const { getIO } = require('../socket/socketHandler');
+const { emitDashboard, emitUser, emitDevice } = require('../socket/socketHandler');
+const { sendAlertToDeviceOwner } = require('./pushService');
 
-/**
- * Alarm Servisi - Alarm oluşturma ve yönetim
- */
-class AlertService {
+async function enrichDetails(alertData) {
+  const details = { ...(alertData.details || {}) };
+  if (!alertData.device_id) return details;
 
-  async createAlert(alertData) {
-    try {
-      // Duplikasyon ve spam engelleme:
-      let checkQuery = supabase
-        .from('alerts')
-        .select('id')
-        .eq('alert_type', alertData.type)
-        .eq('is_resolved', false);
+  const { data: device } = await supabase
+    .from('devices')
+    .select('device_name, user_id')
+    .eq('id', alertData.device_id)
+    .maybeSingle();
+  if (!device) return details;
+  details.device_name = device.device_name;
 
-      if (alertData.device_id) {
-        checkQuery = checkQuery.eq('device_id', alertData.device_id);
-      } else if (alertData.zone_id) {
-        checkQuery = checkQuery.eq('zone_id', alertData.zone_id);
-      }
-
-      const { data: existingAlerts } = await checkQuery;
-      if (existingAlerts && existingAlerts.length > 0) {
-        return null;
-      }
-
-      // Cihaz ve öğrenci bilgisi çek
-      let enrichedDetails = alertData.details || {};
-      if (alertData.device_id) {
-        try {
-          const { data: device } = await supabase
-            .from('devices')
-            .select('device_name, user_id')
-            .eq('id', alertData.device_id)
-            .single();
-          if (device) {
-            enrichedDetails.device_name = device.device_name;
-            if (device.user_id) {
-              const { data: user } = await supabase
-                .from('users')
-                .select('student_id, full_name')
-                .eq('id', device.user_id)
-                .single();
-              if (user) {
-                enrichedDetails.student_id = user.student_id;
-                enrichedDetails.user_name = user.full_name;
-              }
-            }
-          }
-        } catch (e) { /* lookup failed, continue */ }
-      }
-
-      const { data, error } = await supabase
-        .from('alerts')
-        .insert({
-          device_id: alertData.device_id || null,
-          zone_id: alertData.zone_id || null,
-          alert_type: alertData.type,
-          severity: alertData.severity,
-          message: alertData.message,
-          details: Object.keys(enrichedDetails).length > 0 ? enrichedDetails : null,
-          latitude: alertData.latitude || null,
-          longitude: alertData.longitude || null
-        })
-        .select('*')
-        .single();
-
-      if (error) {
-        console.error('Alert oluşturma hatası:', error);
-        return null;
-      }
-
-      // Socket.io ile real-time bildirim
-      try {
-        const io = getIO();
-        if (io) {
-          io.emit('new-alert', data);
-          io.emit('alert-count-update');
-        }
-      } catch (e) {}
-
-      return data;
-    } catch (err) {
-      console.error('Alert servisi hatası:', err);
-      return null;
+  if (device.user_id) {
+    const { data: user } = await supabase
+      .from('users')
+      .select('student_id, full_name')
+      .eq('id', device.user_id)
+      .maybeSingle();
+    if (user) {
+      details.student_id = user.student_id;
+      details.user_name = user.full_name;
+      details.user_id = device.user_id;
     }
   }
+  return details;
+}
 
-  async createMultipleAlerts(alerts, sensorData) {
-    const results = [];
-    for (const alert of alerts) {
-      const result = await this.createAlert({
-        ...alert,
-        device_id: sensorData.device_id,
-        latitude: sensorData.latitude,
-        longitude: sensorData.longitude
-      });
-      if (result) results.push(result);
+class AlertService {
+  async createOrUpdate(alertData) {
+    const details = await enrichDetails(alertData);
+    const { data, error } = await supabase.rpc('cg_upsert_active_alert', {
+      p_dedupe_key: alertData.dedupe_key,
+      p_device_id: alertData.device_id || null,
+      p_zone_id: alertData.zone_id || null,
+      p_alert_type: alertData.type,
+      p_severity: alertData.severity,
+      p_message: alertData.message,
+      p_details: Object.keys(details).length > 0 ? details : null,
+      p_latitude: alertData.latitude ?? null,
+      p_longitude: alertData.longitude ?? null,
+    });
+    if (error) throw error;
+
+    const eventName = data.occurrence_count === 1 ? 'new-alert' : 'alert-updated';
+    emitDashboard(eventName, data);
+    emitDevice(data.device_id, eventName, data);
+    if (details.user_id) emitUser(details.user_id, eventName, data);
+
+    if (
+      data.occurrence_count === 1
+      && (data.alert_type === 'danger_zone' || data.alert_type === 'restricted_zone')
+    ) {
+      await sendAlertToDeviceOwner(data.device_id, data);
     }
-    return results;
+    return data;
+  }
+
+  async resolve(dedupeKey, resolvedBy = null, reason = 'condition_cleared') {
+    const { data, error } = await supabase.rpc('cg_resolve_alert', {
+      p_dedupe_key: dedupeKey,
+      p_resolved_by: resolvedBy,
+      p_reason: reason,
+    });
+    if (error) throw error;
+    if (!data) return null;
+    emitDashboard('alert-resolved', data);
+    emitDevice(data.device_id, 'alert-resolved', data);
+    return data;
   }
 }
 

@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   refreshZones();
+  loadAnalysisSettings();
 });
 
 function updateZoneColor() {
@@ -109,10 +110,10 @@ async function refreshZones() {
           weight: 2
         }).addTo(zonesMap);
         poly.bindPopup(
-          '<b>' + z.name + '</b><br>' +
-          'Tip: ' + (typeLabel[z.type] || z.type) + '<br>' +
-          'Kapasite: ' + z.max_capacity +
-          (z.description ? '<br>Not: ' + z.description : '')
+          '<b>' + escapeHtml(z.name) + '</b><br>' +
+          'Tip: ' + escapeHtml(typeLabel[z.type] || z.type) + '<br>' +
+          'Kapasite: ' + escapeHtml(z.max_capacity) +
+          (z.description ? '<br>Not: ' + escapeHtml(z.description) : '')
         );
       }
     });
@@ -122,9 +123,9 @@ async function refreshZones() {
 
     // Liste HTML'ini oluştur
     listEl.innerHTML = res.data.map(z => {
-      const safeColor = z.color || '#3b82f6';
-      const safeName = (z.name || '').replace(/"/g, '&quot;');
-      const safeDesc = (z.description || '').replace(/"/g, '&quot;');
+      const safeColor = /^#[0-9a-f]{6}$/i.test(z.color || '') ? z.color : '#3b82f6';
+      const safeName = escapeHtml(z.name || '');
+      const safeDesc = escapeHtml(z.description || '');
 
       const adminBtns = isAdmin
         ? '<div style="display:flex;gap:6px;flex-shrink:0">' +
@@ -147,12 +148,12 @@ async function refreshZones() {
           '<span style="color:' + safeColor + '">⬡</span>' +
         '</div>' +
         '<div class="alert-content">' +
-          '<div class="alert-title">' + z.name + '</div>' +
+          '<div class="alert-title">' + safeName + '</div>' +
           '<div class="alert-text">' +
             '<span class="badge badge-' + z.type + '">' + (typeLabel[z.type] || z.type) + '</span>' +
             ' Kapasite: ' + z.max_capacity +
           '</div>' +
-          (z.description ? '<div class="alert-time">' + z.description + '</div>' : '') +
+          (z.description ? '<div class="alert-time">' + safeDesc + '</div>' : '') +
         '</div>' +
         adminBtns +
       '</div>';
@@ -277,5 +278,46 @@ async function deleteZone(id) {
     refreshZones();
   } catch (err) {
     alert('Hata: ' + err.message);
+  }
+}
+
+async function loadAnalysisSettings() {
+  try {
+    const result = await apiRequest('/settings/analysis');
+    if (!result?.data) return;
+    const settings = result.data;
+    document.getElementById('noiseThreshold').value = settings.noise_threshold_db;
+    document.getElementById('noiseMinDevices').value = settings.noise_min_devices;
+    document.getElementById('noiseWindow').value = settings.noise_window_seconds;
+    document.getElementById('noiseMinReadings').value = settings.noise_min_readings;
+    document.getElementById('noiseCooldown').value = settings.noise_cooldown_seconds;
+    document.getElementById('noiseResolve').value = settings.noise_resolve_seconds;
+    document.getElementById('maxLocationAccuracy').value = settings.max_location_accuracy_m;
+    document.getElementById('speedLimit').value = settings.speed_limit_kmh;
+  } catch (error) {
+    document.getElementById('settingsStatus').textContent = error.message;
+  }
+}
+
+async function saveAnalysisSettings() {
+  const status = document.getElementById('settingsStatus');
+  status.textContent = 'Kaydediliyor...';
+  try {
+    await apiRequest('/settings/analysis', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        noise_threshold_db: Number(document.getElementById('noiseThreshold').value),
+        noise_min_devices: Number(document.getElementById('noiseMinDevices').value),
+        noise_window_seconds: Number(document.getElementById('noiseWindow').value),
+        noise_min_readings: Number(document.getElementById('noiseMinReadings').value),
+        noise_cooldown_seconds: Number(document.getElementById('noiseCooldown').value),
+        noise_resolve_seconds: Number(document.getElementById('noiseResolve').value),
+        max_location_accuracy_m: Number(document.getElementById('maxLocationAccuracy').value),
+        speed_limit_kmh: Number(document.getElementById('speedLimit').value),
+      }),
+    });
+    status.textContent = 'Kaydedildi';
+  } catch (error) {
+    status.textContent = error.message;
   }
 }

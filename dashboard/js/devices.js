@@ -29,15 +29,15 @@ async function loadDevices() {
     tbody.innerHTML = res.data.map(d => {
       const isOnline = d.last_seen && (now - new Date(d.last_seen).getTime()) < 300000;
       return `<tr>
-        <td><strong>${d.student_id || '-'}</strong></td>
-        <td>${d.device_type || 'smartphone'}</td>
-        <td>${d.platform || '-'}</td>
+        <td><strong>${escapeHtml(d.student_id || '-')}</strong></td>
+        <td>${escapeHtml(d.device_type || 'smartphone')}</td>
+        <td>${escapeHtml(d.platform || '-')}</td>
         <td><span class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">${isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}</span></td>
         <td>${d.last_seen ? new Date(d.last_seen).toLocaleString('tr-TR') : '-'}</td>
         <td>${d.last_latitude ? d.last_latitude.toFixed(5)+', '+d.last_longitude.toFixed(5) : '-'}</td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="openSimForDevice('${d.id}','${d.student_id || d.device_name}')" title="Test verisi gönder">🧪</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteDevice('${d.id}')">🗑️</button>
+          <button class="btn btn-sm btn-outline" data-click-action="openSimForDevice" data-args="${escapeHtml(JSON.stringify([d.id, d.student_id || d.device_name]))}" title="Test verisi gönder">🧪</button>
+          <button class="btn btn-danger btn-sm" data-click-action="deleteDevice" data-arg="${escapeHtml(d.id)}">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -101,7 +101,7 @@ async function loadDangerZones() {
     }
     container.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">Bölgeye gönder:</span>' +
       dangerZones.map(z =>
-        `<button class="dz-btn" onclick="jumpToZone('${z.id}')">${z.name}</button>`
+        `<button class="dz-btn" data-click-action="jumpToZone" data-arg="${escapeHtml(z.id)}">${escapeHtml(z.name)}</button>`
       ).join('');
   } catch (err) { console.error(err); }
 }
@@ -571,13 +571,13 @@ function updateSimsUI() {
     return `
       <div class="active-sim-card">
         <div class="active-sim-info">
-          <div class="active-sim-name">${sim.name}</div>
+          <div class="active-sim-name">${escapeHtml(sim.name)}</div>
           <div class="active-sim-stats">Aralık: ${sim.interval}s | Konum: ${sim.lat.toFixed(5)}, ${sim.lng.toFixed(5)}</div>
           <div class="active-sim-stats">Gönderilen: <strong style="color:var(--primary)">${packetProgress}</strong></div>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:11px; font-weight:bold; color:${color}">${statusText}</span>
-          <button class="btn btn-danger btn-sm" onclick="stopSimulator('${sim.id}')" style="padding:2px 6px; font-size:11px;">Durdur</button>
+          <span style="font-size:11px; font-weight:bold; color:${color}">${escapeHtml(statusText)}</span>
+          <button class="btn btn-danger btn-sm" data-click-action="stopSimulator" data-arg="${escapeHtml(sim.id)}" style="padding:2px 6px; font-size:11px;">Durdur</button>
         </div>
       </div>
     `;

@@ -1,238 +1,179 @@
-// CampusGuard - Leaflet Map — BTÜ Mimar Sinan Yerleşkesi
 let dashboardMap = null;
 let deviceMarkers = {};
 let zonePolygons = {};
-let zoneAlertCounters = {};
+let activeZoneAlerts = new Map();
+let mapRefreshTimer = null;
 
 const CAMPUS_CENTER = [40.1889, 29.1310];
 const CAMPUS_ZOOM = 17;
-
-// BTÜ Mimar Sinan Yerleşkesi gerçek sınırları
 const CAMPUS_BOUNDS = L.latLngBounds(
-  [40.186121, 29.125768], // Güneybatı (sol-alt)
-  [40.191767, 29.136281]  // Kuzeydoğu (sağ-üst)
+  [40.186121, 29.125768],
+  [40.191767, 29.136281],
 );
 
 function initDashboardMap() {
-  if (dashboardMap) return;
-  const el = document.getElementById('dashboardMap');
-  if (!el) return;
-
+  if (dashboardMap || !document.getElementById('dashboardMap')) return;
   dashboardMap = L.map('dashboardMap', {
     minZoom: 15,
     maxZoom: 19,
     maxBounds: CAMPUS_BOUNDS,
-    maxBoundsViscosity: 1.0
+    maxBoundsViscosity: 1,
   }).setView(CAMPUS_CENTER, CAMPUS_ZOOM);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 19
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
   }).addTo(dashboardMap);
 
   loadMapData();
-  // Refresh every 15 seconds
-  setInterval(loadMapData, 15000);
-  
-  // Set up socket listeners for zone alerts dynamic coloring
-  setupMapSocketListeners();
+  mapRefreshTimer = window.setInterval(loadMapData, 15000);
+}
+
+function zoneHasActiveAlert(zoneId) {
+  return (activeZoneAlerts.get(String(zoneId)) || 0) > 0;
+}
+
+function styleZone(zoneId) {
+  const polygon = zonePolygons[zoneId];
+  if (!polygon) return;
+  const color = zoneHasActiveAlert(zoneId) ? '#ef4444' : polygon.defaultColor;
+  polygon.setStyle({ color, fillColor: color, fillOpacity: zoneHasActiveAlert(zoneId) ? 0.35 : 0.15 });
+}
+
+function handleMapAlert(alert) {
+  if (!alert?.zone_id) return;
+  const zoneId = String(alert.zone_id);
+  activeZoneAlerts.set(zoneId, (activeZoneAlerts.get(zoneId) || 0) + 1);
+  styleZone(zoneId);
+  playAlarmSound();
+}
+
+function handleMapAlertResolved(alert) {
+  if (!alert?.zone_id) return;
+  const zoneId = String(alert.zone_id);
+  activeZoneAlerts.set(zoneId, Math.max((activeZoneAlerts.get(zoneId) || 1) - 1, 0));
+  styleZone(zoneId);
+}
+
+function clearMapAlertHighlights() {
+  activeZoneAlerts.clear();
+  Object.keys(zonePolygons).forEach(styleZone);
 }
 
 async function loadMapData() {
   try {
-    // Load zones
-    const zonesRes = await apiRequest('/zones');
-    if (zonesRes && zonesRes.data) {
-      Object.values(zonePolygons).forEach(p => dashboardMap.removeLayer(p));
-      zonePolygons = {};
+    const [zonesResult, devicesResult, alertsResult] = await Promise.all([
+      apiRequest('/zones'),
+      apiRequest('/dashboard/live-devices'),
+      apiRequest('/alerts?limit=200&resolved=false'),
+    ]);
+    if (!zonesResult || !devicesResult || !alertsResult) return;
 
-      zonesRes.data.forEach(zone => {
-        if (zone.polygon && zone.polygon.length >= 3) {
-          const typeLabel = { normal: 'Normal', restricted: 'Kısıtlı', danger: 'Tehlikeli' };
-          
-          // Determine color based on active alert counter
-          let currentColor = zone.color || '#3b82f6';
-          if (zoneAlertCounters[zone.id] !== undefined && zoneAlertCounters[zone.id] < 5) {
-            currentColor = '#ef4444'; // Keep it red if alert is active
-          } else if (zoneAlertCounters[zone.id] === undefined) {
-            zoneAlertCounters[zone.id] = 5; // Default to clean state
-          }
-          
-          const poly = L.polygon(zone.polygon, {
-            color: currentColor,
-            fillColor: currentColor,
-            fillOpacity: 0.15,
-            weight: 2
-          }).addTo(dashboardMap);
-          poly.bindPopup(`<b>${zone.name}</b><br>Tip: ${typeLabel[zone.type] || zone.type}<br>Kapasite: ${zone.max_capacity}`);
-          
-          poly.defaultColor = zone.color || '#3b82f6';
-          poly.zoneType = zone.type;
-          zonePolygons[zone.id] = poly;
-        }
-      });
+    activeZoneAlerts = new Map();
+    for (const alert of alertsResult.data || []) {
+      if (!alert.zone_id) continue;
+      const zoneId = String(alert.zone_id);
+      activeZoneAlerts.set(zoneId, (activeZoneAlerts.get(zoneId) || 0) + 1);
     }
 
-    // Load live devices (now includes active_alerts and student_id)
-    const devRes = await apiRequest('/dashboard/live-devices');
-    if (devRes && devRes.data) {
-      Object.values(deviceMarkers).forEach(m => dashboardMap.removeLayer(m));
-      deviceMarkers = {};
+    Object.values(zonePolygons).forEach((polygon) => dashboardMap.removeLayer(polygon));
+    zonePolygons = {};
+    const typeLabels = { normal: 'Normal', restricted: 'Kisitli', danger: 'Tehlikeli' };
+    for (const zone of zonesResult.data || []) {
+      if (!zone.polygon || zone.polygon.length < 3) continue;
+      const defaultColor = zone.color || '#3b82f6';
+      const polygon = L.polygon(zone.polygon, {
+        color: defaultColor,
+        fillColor: defaultColor,
+        fillOpacity: 0.15,
+        weight: 2,
+      }).addTo(dashboardMap);
+      polygon.defaultColor = defaultColor;
+      polygon.bindPopup(
+        `<b>${escapeHtml(zone.name)}</b><br>Tip: ${escapeHtml(typeLabels[zone.type] || zone.type)}`
+        + `<br>Kapasite: ${escapeHtml(zone.max_capacity)}`,
+      );
+      zonePolygons[String(zone.id)] = polygon;
+      styleZone(String(zone.id));
+    }
 
-      devRes.data.forEach(dev => {
-        if (dev.last_latitude && dev.last_longitude) {
-          // Alarm durumuna göre renk
-          let markerColor = '#3b82f6';  // varsayılan: mavi
-          let fillColor = '#60a5fa';
-          const alerts = dev.active_alerts || [];
-          
-          if (alerts.some(a => a.severity === 'critical')) {
-            markerColor = '#ef4444'; fillColor = '#f87171'; // kırmızı
-          } else if (alerts.some(a => a.type && a.type.includes('noise'))) {
-            markerColor = '#f97316'; fillColor = '#fb923c'; // turuncu
-          } else if (alerts.length > 0) {
-            markerColor = '#f59e0b'; fillColor = '#fbbf24'; // sarı
-          }
-
-          const marker = L.circleMarker([dev.last_latitude, dev.last_longitude], {
-            radius: 10,
-            color: markerColor,
-            fillColor: fillColor,
-            fillOpacity: 0.9,
-            weight: 2
-          }).addTo(dashboardMap);
-
-          const alertBadge = alerts.length > 0
-            ? `<br><span style="color:${markerColor};font-weight:bold">⚠️ ${alerts.length} aktif alarm</span>`
-            : '';
-
-          marker.bindPopup(
-            `<b>Öğrenci No: ${dev.student_id || dev.device_name}</b>` +
-            `<br>Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}` +
-            `<br>Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
-            alertBadge
-          );
-          deviceMarkers[dev.id] = marker;
-        }
+    Object.values(deviceMarkers).forEach((marker) => dashboardMap.removeLayer(marker));
+    deviceMarkers = {};
+    for (const device of devicesResult.data || []) {
+      if (device.last_latitude == null || device.last_longitude == null) continue;
+      renderDeviceMarker({
+        device_id: device.id,
+        student_id: device.student_id || device.device_name,
+        latitude: device.last_latitude,
+        longitude: device.last_longitude,
+        timestamp: device.last_seen,
+        active_alerts: device.active_alerts || [],
       });
     }
-  } catch (err) {
-    console.error('Map data error:', err);
+  } catch (error) {
+    console.error('Map data error:', error);
   }
 }
 
-function updateDeviceOnMap(data) {
-  if (!dashboardMap || !data.latitude || !data.longitude) return;
-  
-  // Determine marker color in real-time based on active packet alerts
-  const alerts = data.active_alerts || [];
-  let markerColor = '#3b82f6';  // default blue
-  let fillColor = '#60a5fa';
-  
-  if (alerts.length > 0) {
-    if (alerts.some(a => a.severity === 'critical')) {
-      markerColor = '#ef4444'; fillColor = '#f87171'; // red
-    } else if (alerts.some(a => (a.type || a.alert_type || '').includes('noise'))) {
-      markerColor = '#f97316'; fillColor = '#fb923c'; // orange
-    } else {
-      markerColor = '#f59e0b'; fillColor = '#fbbf24'; // yellow
-    }
+function markerColors(alerts) {
+  if (alerts.some((alert) => alert.severity === 'critical')) {
+    return { color: '#ef4444', fillColor: '#f87171' };
   }
+  if (alerts.some((alert) => String(alert.type || alert.alert_type).includes('noise'))) {
+    return { color: '#f97316', fillColor: '#fb923c' };
+  }
+  if (alerts.length > 0) return { color: '#f59e0b', fillColor: '#fbbf24' };
+  return { color: '#3b82f6', fillColor: '#60a5fa' };
+}
 
-  const popupContent = 
-    `<b>Öğrenci No: ${data.student_id || '-'}</b><br>` +
-    `Gürültü: ${data.noise_level ? data.noise_level.toFixed(1) + ' dB' : '-'}<br>` +
-    `Hız: ${data.speed ? data.speed.toFixed(1) + ' km/h' : '-'}<br>` +
-    `Güncelleme: ${new Date(data.timestamp || Date.now()).toLocaleTimeString('tr-TR')}`;
+function renderDeviceMarker(data) {
+  const alerts = data.active_alerts || [];
+  const colors = markerColors(alerts);
+  const popup = `<b>Ogrenci: ${escapeHtml(data.student_id || '-')}</b>`
+    + `<br>Gurultu: ${data.noise_level == null ? '-' : `${Number(data.noise_level).toFixed(1)} dB`}`
+    + `<br>Hiz: ${data.speed == null ? '-' : `${Number(data.speed).toFixed(1)} km/h`}`
+    + `<br>Guncelleme: ${new Date(data.timestamp || Date.now()).toLocaleString('tr-TR')}`
+    + (alerts.length ? `<br><b>${alerts.length} aktif alarm</b>` : '');
 
-  if (deviceMarkers[data.device_id]) {
-    const marker = deviceMarkers[data.device_id];
-    marker.setLatLng([data.latitude, data.longitude]);
-    marker.setStyle({ color: markerColor, fillColor: fillColor });
-    marker.setPopupContent(popupContent);
-  } else {
-    const marker = L.circleMarker([data.latitude, data.longitude], {
-      radius: 10, color: markerColor, fillColor: fillColor, fillOpacity: 0.9, weight: 2
+  let marker = deviceMarkers[data.device_id];
+  if (!marker) {
+    marker = L.circleMarker([data.latitude, data.longitude], {
+      radius: 10,
+      ...colors,
+      fillOpacity: 0.9,
+      weight: 2,
     }).addTo(dashboardMap);
     deviceMarkers[data.device_id] = marker;
-    marker.bindPopup(popupContent);
+    marker.bindPopup(popup);
+    return;
   }
+  marker.setLatLng([data.latitude, data.longitude]);
+  marker.setStyle(colors);
+  marker.setPopupContent(popup);
+}
+
+function updateDeviceOnMap(data) {
+  if (!dashboardMap || data.latitude == null || data.longitude == null) return;
+  renderDeviceMarker(data);
 }
 
 function playAlarmSound() {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    
-    // Play a high attention dual-tone siren
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    
-    osc1.type = 'sawtooth';
-    osc1.frequency.setValueAtTime(880, ctx.currentTime);
-    osc1.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.4);
-    
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(440, ctx.currentTime);
-    osc2.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.4);
-
-    gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-    
-    osc1.connect(gainNode);
-    osc2.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    
-    osc1.start();
-    osc2.start();
-    osc1.stop(ctx.currentTime + 0.8);
-    osc2.stop(ctx.currentTime + 0.8);
-  } catch (e) {
-    console.error('Failed to play alarm sound:', e);
-  }
-}
-
-function setupMapSocketListeners() {
-  if (typeof io !== 'undefined') {
-    const checkSocket = setInterval(() => {
-      if (window.socket) {
-        clearInterval(checkSocket);
-        
-        window.socket.on('new-alert', (alert) => {
-          // Play warning siren sound
-          playAlarmSound();
-
-          if ((alert.alert_type === 'restricted_zone' || alert.alert_type === 'danger_zone') && alert.zone_id) {
-            zoneAlertCounters[alert.zone_id] = 0;
-            const poly = zonePolygons[alert.zone_id];
-            if (poly) {
-              poly.setStyle({ color: '#ef4444', fillColor: '#ef4444' });
-            }
-          }
-        });
-
-        window.socket.on('sensor-update', (data) => {
-          // Update device marker coordinates and real-time color styling
-          updateDeviceOnMap(data);
-
-          // Her yeni sensör verisinde, alarmı olan bölgelerin sayaçlarını artırıyoruz.
-          // 5 paket boyunca yeni alarm gelmezse rengi varsayılana döndürüyoruz.
-          Object.keys(zoneAlertCounters).forEach(zoneId => {
-            if (zoneAlertCounters[zoneId] < 5) {
-              zoneAlertCounters[zoneId]++;
-              if (zoneAlertCounters[zoneId] >= 5) {
-                const poly = zonePolygons[zoneId];
-                if (poly) {
-                  poly.setStyle({ color: poly.defaultColor, fillColor: poly.defaultColor });
-                }
-              }
-            }
-          });
-        });
-      }
-    }, 100);
+    const Context = window.AudioContext || window.webkitAudioContext;
+    if (!Context) return;
+    const context = new Context();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.setValueAtTime(880, context.currentTime);
+    oscillator.frequency.linearRampToValueAtTime(440, context.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.12, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.7);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.7);
+  } catch (error) {
+    console.error('Alarm sound error:', error);
   }
 }
 

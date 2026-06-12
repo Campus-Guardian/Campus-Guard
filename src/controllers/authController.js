@@ -1,133 +1,137 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
+const {
+  createAccessToken,
+  setAccessCookie,
+  clearAccessCookie,
+  consumeRegistrationTicket,
+  createRefreshToken,
+  rotateRefreshToken,
+  revokeRefreshToken,
+} = require('../services/tokenService');
 
-// Kullanıcı kaydı (BTU doğrulaması sonrası)
+function publicUser(user) {
+  return {
+    id: user.id,
+    student_id: user.student_id,
+    email: user.email,
+    full_name: user.full_name,
+    role: user.role,
+  };
+}
+
+async function findUser(column, value) {
+  const { data } = await supabase.from('users').select('*').eq(column, value).maybeSingle();
+  return data;
+}
+
+async function verifyCredentials(user, password) {
+  if (!user || !user.is_active) return false;
+  return bcrypt.compare(password, user.password_hash);
+}
+
+async function issueMobileSession(user) {
+  return {
+    access_token: createAccessToken(user),
+    refresh_token: await createRefreshToken(user.id),
+    expires_in: 900,
+  };
+}
+
 exports.register = async (req, res) => {
   try {
-    const { student_id, password } = req.body;
-
-    // Öğrenci numarası kontrolü
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('student_id', student_id)
-      .single();
-
-    if (existing) {
-      return res.status(409).json({ error: 'Bu öğrenci numarası zaten kayıtlı' });
+    const { student_id, password, registration_ticket } = req.body;
+    const ticket = await consumeRegistrationTicket(registration_ticket, student_id);
+    if (!ticket) {
+      return res.status(403).json({ error: 'Gecerli bir BTU dogrulama bileti gerekli' });
     }
 
-    const password_hash = await bcrypt.hash(password, 10);
+    if (await findUser('student_id', student_id)) {
+      return res.status(409).json({ error: 'Bu ogrenci numarasi zaten kayitli' });
+    }
 
     const { data: user, error } = await supabase
       .from('users')
       .insert({
         student_id,
         email: `${student_id}@btu.edu.tr`,
-        password_hash,
-        full_name: student_id,
-        role: 'user'
+        password_hash: await bcrypt.hash(password, 12),
+        full_name: ticket.name_hint || student_id,
+        role: 'user',
       })
       .select('id, student_id, email, full_name, role')
       .single();
 
     if (error) throw error;
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-    });
-
-    res.status(201).json({ message: 'Kayıt başarılı', user, token });
+    res.status(201).json({ message: 'Kayit basarili', user });
   } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Kayıt sırasında hata oluştu' });
+    console.error('Register error:', err.message);
+    res.status(500).json({ error: 'Kayit sirasinda hata olustu' });
   }
 };
 
-// Giriş (öğrenci numarası + şifre)
 exports.login = async (req, res) => {
   try {
-    const { student_id, password } = req.body;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('student_id', student_id)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Öğrenci numarası veya şifre hatalı' });
+    const user = await findUser('student_id', req.body.student_id);
+    if (!(await verifyCredentials(user, req.body.password))) {
+      return res.status(401).json({ error: 'Ogrenci numarasi veya sifre hatali' });
     }
-
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Öğrenci numarası veya şifre hatalı' });
-    }
-
-    if (!user.is_active) {
-      return res.status(403).json({ error: 'Hesap devre dışı' });
-    }
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-    });
 
     res.json({
-      message: 'Giriş başarılı',
-      user: { id: user.id, student_id: user.student_id, email: user.email, full_name: user.full_name, role: user.role },
-      token
+      message: 'Giris basarili',
+      user: publicUser(user),
+      ...(await issueMobileSession(user)),
     });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Giriş sırasında hata oluştu' });
+    console.error('Login error:', err.message);
+    res.status(500).json({ error: 'Giris sirasinda hata olustu' });
   }
 };
 
-// Profil bilgisi
-exports.getMe = async (req, res) => {
-  res.json({ user: req.user });
-};
-
-// Dashboard admin girişi (email + password)
 exports.adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Email veya şifre hatalı' });
+    const user = await findUser('email', req.body.email);
+    if (!(await verifyCredentials(user, req.body.password))) {
+      return res.status(401).json({ error: 'Email veya sifre hatali' });
     }
-
     if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Bu panele erişim yalnızca admin kullanıcılara açıktır' });
+      return res.status(403).json({ error: 'Bu panel yalnizca yoneticilere aciktir' });
     }
 
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Email veya şifre hatalı' });
-    }
+    setAccessCookie(res, createAccessToken(user));
+    res.json({ message: 'Giris basarili', user: publicUser(user) });
+  } catch (err) {
+    console.error('Admin login error:', err.message);
+    res.status(500).json({ error: 'Giris sirasinda hata olustu' });
+  }
+};
 
-    if (!user.is_active) {
-      return res.status(403).json({ error: 'Hesap devre dışı' });
-    }
+exports.refresh = async (req, res) => {
+  try {
+    const rotated = await rotateRefreshToken(req.body.refresh_token);
+    if (!rotated) return res.status(401).json({ error: 'Gecersiz yenileme tokeni' });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-    });
+    const user = await findUser('id', rotated.userId);
+    if (!user || !user.is_active) return res.status(401).json({ error: 'Hesap kullanilamiyor' });
 
     res.json({
-      message: 'Giriş başarılı',
-      user: { id: user.id, student_id: user.student_id, email: user.email, full_name: user.full_name, role: user.role },
-      token
+      access_token: createAccessToken(user),
+      refresh_token: rotated.refreshToken,
+      expires_in: 900,
+      user: publicUser(user),
     });
   } catch (err) {
-    console.error('Admin login error:', err);
-    res.status(500).json({ error: 'Giriş sırasında hata oluştu' });
+    console.error('Refresh error:', err.message);
+    res.status(500).json({ error: 'Oturum yenilenemedi' });
   }
+};
+
+exports.logout = async (req, res) => {
+  await revokeRefreshToken(req.body?.refresh_token);
+  clearAccessCookie(res);
+  res.status(204).end();
+};
+
+exports.getMe = async (req, res) => {
+  res.json({ user: req.user });
 };

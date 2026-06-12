@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CampusGuard - Bölge Yönetimi</title>
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/vendor/leaflet-draw/leaflet.draw.css">
 </head>
 <body>
   <div class="app-layout">
@@ -23,7 +23,7 @@
           <div class="user-avatar" id="userAvatar">A</div>
           <div><div class="user-name" id="userName">Admin</div><div class="user-role" id="userRole">admin</div></div>
         </div>
-        <button class="btn btn-outline btn-sm btn-full" onclick="logout()" style="margin-top:8px">Çıkış Yap</button>
+        <button class="btn btn-outline btn-sm btn-full" data-click-action="logout" style="margin-top:8px">Çıkış Yap</button>
       </div>
     </aside>
 
@@ -39,7 +39,7 @@
         <div class="grid-2">
           <!-- Map -->
           <div class="card">
-            <div class="card-header"><h3>Kampüs Haritası</h3><button class="btn btn-sm btn-outline" onclick="refreshZones()">↻ Yenile</button></div>
+            <div class="card-header"><h3>Kampüs Haritası</h3><button class="btn btn-sm btn-outline" data-click-action="refreshZones">↻ Yenile</button></div>
             <div class="card-body" style="padding:0">
               <div class="map-container" style="height:600px"><div id="zonesMap" style="height:100%"></div></div>
             </div>
@@ -47,6 +47,23 @@
 
           <!-- Zone List + Add Form -->
           <div>
+            <div class="card" style="margin-bottom:24px">
+              <div class="card-header"><h3>Global Analiz Ayarlari</h3></div>
+              <div class="card-body">
+                <div class="grid-2">
+                  <div class="form-group"><label>Gurultu esigi (dB)</label><input type="number" id="noiseThreshold" min="40" max="130"></div>
+                  <div class="form-group"><label>Minimum cihaz</label><input type="number" id="noiseMinDevices" min="2" max="100"></div>
+                  <div class="form-group"><label>Pencere (sn)</label><input type="number" id="noiseWindow" min="5" max="600"></div>
+                  <div class="form-group"><label>Cihaz basi olcum</label><input type="number" id="noiseMinReadings" min="1" max="20"></div>
+                  <div class="form-group"><label>Cooldown (sn)</label><input type="number" id="noiseCooldown" min="10" max="3600"></div>
+                  <div class="form-group"><label>Cozulme suresi (sn)</label><input type="number" id="noiseResolve" min="10" max="3600"></div>
+                  <div class="form-group"><label>Maks. GPS dogrulugu (m)</label><input type="number" id="maxLocationAccuracy" min="5" max="200"></div>
+                  <div class="form-group"><label>Hiz limiti (km/h)</label><input type="number" id="speedLimit" min="5" max="150"></div>
+                </div>
+                <button class="btn btn-primary" data-click-action="saveAnalysisSettings">Ayarlari Kaydet</button>
+                <span id="settingsStatus" style="margin-left:10px;color:var(--text-muted)"></span>
+              </div>
+            </div>
             <!-- Add Zone Form (shown after drawing) -->
             <div class="card" id="zoneFormCard" style="display:none;margin-bottom:24px">
               <div class="card-header"><h3>Yeni Bölge Bilgileri</h3></div>
@@ -54,7 +71,7 @@
                 <div class="form-group"><label>Bölge Adı</label><input type="text" id="zoneName" placeholder="Örn: Kütüphane Önü"></div>
                 <div class="form-group">
                   <label>Bölge Tipi</label>
-                  <select id="zoneType" onchange="updateZoneColor()">
+                  <select id="zoneType" data-change-action="updateZoneColor">
                     <option value="normal">Normal</option>
                     <option value="restricted">Kısıtlı</option>
                     <option value="danger">Tehlikeli</option>
@@ -65,8 +82,8 @@
                 <div class="form-group"><label>Açıklama</label><textarea id="zoneDescription" rows="2" placeholder="Opsiyonel"></textarea></div>
 
                 <div style="display:flex;gap:12px">
-                  <button class="btn btn-primary" onclick="saveZone()">Kaydet</button>
-                  <button class="btn btn-outline" onclick="cancelZone()">İptal</button>
+                  <button class="btn btn-primary" data-click-action="saveZone">Kaydet</button>
+                  <button class="btn btn-outline" data-click-action="cancelZone">İptal</button>
                 </div>
               </div>
             </div>
@@ -86,9 +103,10 @@
     </main>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/leaflet-draw/leaflet.draw.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/actions.js"></script>
   <script src="js/zones.js"></script>
 
   <!-- Bölge Düzenleme Modalı -->
@@ -96,7 +114,7 @@
     <div class="modal" style="max-width:500px">
       <div class="modal-header">
         <h3>✏️ Bölge Düzenle</h3>
-        <button class="modal-close" onclick="closeEditZoneModal()">✕</button>
+        <button class="modal-close" data-click-action="closeEditZoneModal">✕</button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="editZoneId">
@@ -126,8 +144,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeEditZoneModal()">İptal</button>
-        <button class="btn btn-primary" onclick="updateZone()">💾 Kaydet</button>
+        <button class="btn btn-outline" data-click-action="closeEditZoneModal">İptal</button>
+        <button class="btn btn-primary" data-click-action="updateZone">💾 Kaydet</button>
       </div>
     </div>
   </div>

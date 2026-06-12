@@ -1,11 +1,27 @@
 const router = require('express').Router();
-const { register, login, getMe, adminLogin } = require('../controllers/authController');
+const {
+  register,
+  login,
+  getMe,
+  adminLogin,
+  refresh,
+  logout,
+} = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
-const { validate, registerSchema, loginSchema, adminLoginSchema } = require('../middleware/validation');
+const { authLimiter } = require('../middleware/rateLimits');
+const {
+  validate,
+  registerSchema,
+  loginSchema,
+  adminLoginSchema,
+  refreshSchema,
+} = require('../middleware/validation');
 
-router.post('/register', validate(registerSchema), register);
-router.post('/login', validate(loginSchema), login);
-router.post('/admin-login', validate(adminLoginSchema), adminLogin); // Dashboard admin girişi
+router.post('/register', authLimiter, validate(registerSchema), register);
+router.post('/login', authLimiter, validate(loginSchema), login);
+router.post('/admin-login', authLimiter, validate(adminLoginSchema), adminLogin);
+router.post('/refresh', authLimiter, validate(refreshSchema), refresh);
+router.post('/logout', logout);
 router.get('/me', authenticate, getMe);
 
 module.exports = router;

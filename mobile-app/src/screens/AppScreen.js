@@ -20,6 +20,8 @@ import {
   setOnDataCountUpdate,
 } from '../services/apiService';
 import { logout } from '../services/authService';
+import { refreshZoneCache } from '../services/zoneCache';
+import { registerPushToken } from '../services/pushService';
 
 export default function AppScreen({ onLogout }) {
   const [isRunning, setIsRunning] = useState(false);
@@ -116,6 +118,10 @@ export default function AppScreen({ onLogout }) {
       });
       if (res && res.device) {
         await AsyncStorage.setItem('cg_m_device', JSON.stringify(res.device));
+        await Promise.allSettled([
+          refreshZoneCache(),
+          registerPushToken(res.device.id),
+        ]);
         setCurrentDevice(res.device);
         setStatusState('ready');
         setStatusText('Hazır');
@@ -148,6 +154,10 @@ export default function AppScreen({ onLogout }) {
       try {
         const dev = JSON.parse(savedDevice);
         setCurrentDevice(dev);
+        await Promise.allSettled([
+          refreshZoneCache(),
+          registerPushToken(dev.id),
+        ]);
         setStatusState('ready');
         setStatusText('Hazır');
         setStatusSub('Sensörleri başlatmak için butona basın');
@@ -176,13 +186,23 @@ export default function AppScreen({ onLogout }) {
       return;
     }
 
-    isRunningRef.current = true;
-    setIsRunning(true);
-    await startAllSensors();
-    startSending(currentDevice.id);
-    setStatusState('active');
-    setStatusText('Aktif');
-    setStatusSub('Sensör verileri gönderiliyor...');
+    try {
+      await startAllSensors();
+      await startSending(currentDevice.id);
+      isRunningRef.current = true;
+      setIsRunning(true);
+      setStatusState('active');
+      setStatusText('Aktif');
+      setStatusSub('Arka plan toplama acik. Uygulama zorla durdurulursa toplama kesilir.');
+    } catch (error) {
+      await stopAllSensors().catch(() => {});
+      stopSending();
+      isRunningRef.current = false;
+      setIsRunning(false);
+      setStatusState('error');
+      setStatusText('Izin gerekli');
+      setStatusSub(error.message);
+    }
   };
 
   const handleStopSensors = async () => {

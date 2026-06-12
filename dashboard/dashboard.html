@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CampusGuard - Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 </head>
 <body>
   <div class="app-layout">
@@ -30,7 +29,7 @@
             <div class="user-role" id="userRole">admin</div>
           </div>
         </div>
-        <button class="btn btn-outline btn-sm btn-full" onclick="logout()" style="margin-top:8px">Çıkış Yap</button>
+        <button class="btn btn-outline btn-sm btn-full" data-click-action="logout" style="margin-top:8px">Çıkış Yap</button>
       </div>
     </aside>
 
@@ -39,8 +38,8 @@
       <header class="header">
         <h1>📊 Dashboard</h1>
         <div class="header-actions">
-          <button class="btn btn-outline btn-sm" onclick="downloadAlertsReport()" style="margin-right:12px; display:flex; align-items:center; gap:6px;">📥 CSV Raporu</button>
-          <div class="notification-badge" onclick="window.location='alerts.html'">
+          <button class="btn btn-outline btn-sm" data-click-action="downloadAlertsReport" style="margin-right:12px; display:flex; align-items:center; gap:6px;">📥 CSV Raporu</button>
+          <div class="notification-badge" data-href="alerts.html">
             🔔
             <span class="count" id="alertCount">0</span>
           </div>
@@ -86,7 +85,7 @@
         <div class="card" style="margin-bottom:24px">
           <div class="card-header">
             <h3>🗺️ Kampüs Haritası — Canlı İzleme</h3>
-            <button class="btn btn-sm btn-outline" onclick="refreshMap()">↻ Yenile</button>
+            <button class="btn btn-sm btn-outline" data-click-action="refreshMap">↻ Yenile</button>
           </div>
           <div class="card-body" style="padding:0">
             <div class="map-container"><div id="dashboardMap"></div></div>
@@ -120,10 +119,11 @@
     </main>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/chart.js/chart.umd.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/actions.js"></script>
   <script src="js/socket.js"></script>
   <script src="js/map.js"></script>
   <script src="js/charts.js"></script>

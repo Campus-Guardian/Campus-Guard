@@ -1,4 +1,3 @@
-// CampusGuard - Alerts Page
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   loadAlerts();
@@ -12,7 +11,9 @@ async function loadAlertStats() {
     document.getElementById('alertActive').textContent = stats.active;
     document.getElementById('alertResolved').textContent = stats.resolved;
     document.getElementById('alertTotal').textContent = stats.total;
-  } catch (err) { console.error(err); }
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function loadAlerts() {
@@ -20,68 +21,74 @@ async function loadAlerts() {
     const type = document.getElementById('filterType').value;
     const severity = document.getElementById('filterSeverity').value;
     const resolved = document.getElementById('filterResolved').value;
+    const params = new URLSearchParams({ limit: '100' });
+    if (type) params.set('type', type);
+    if (severity) params.set('severity', severity);
+    if (resolved !== '') params.set('resolved', resolved);
 
-    let url = '/alerts?limit=100';
-    if (type) url += '&type=' + type;
-    if (severity) url += '&severity=' + severity;
-    if (resolved !== '') url += '&resolved=' + resolved;
-
-    const res = await apiRequest(url);
+    const result = await apiRequest(`/alerts?${params}`);
     const tbody = document.getElementById('alertTableBody');
-
-    if (!res || !res.data || res.data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Alarm bulunamadı</td></tr>';
+    if (!result?.data?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Alarm bulunamadi</td></tr>';
       return;
     }
 
-    const severityLabels = { critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' };
+    const severityLabels = {
+      critical: 'Kritik',
+      high: 'Yuksek',
+      medium: 'Orta',
+      low: 'Dusuk',
+    };
     const typeNames = {
-      'noise_warning': '🔊 Gürültü (Uyarı)', 'noise_critical': '🔊 Gürültü (Kritik)',
-      'crowd_warning': '👥 Kalabalık (Uyarı)', 'crowd_critical': '👥 Kalabalık (Kritik)',
-      'restricted_zone': '🚧 Kısıtlı Bölge', 'danger_zone': '☠️ Tehlikeli Bölge',
-      'abnormal_motion': '💥 Anormal Hareket', 'speed_violation': '🏎️ Hız İhlali',
-      'inactivity': '😴 Hareketsizlik'
+      noise_zone: 'Bolgesel gurultu',
+      noise_critical: 'Bolgesel gurultu',
+      crowd_warning: 'Kalabalik',
+      crowd_critical: 'Kritik kalabalik',
+      restricted_zone: 'Kisitli bolge',
+      danger_zone: 'Tehlikeli bolge',
+      abnormal_motion: 'Anormal hareket',
+      speed_violation: 'Hiz ihlali',
     };
 
-    const user = getUser();
-    const isAdmin = user && user.role === 'admin';
-
-    tbody.innerHTML = res.data.map(a => {
-      const details = a.details || {};
+    tbody.innerHTML = result.data.map((item) => {
+      const details = item.details || {};
+      const repeats = item.occurrence_count > 1 ? ` (${item.occurrence_count} tekrar)` : '';
       return `
-      <tr>
-        <td><span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span></td>
-        <td>${typeNames[a.alert_type] || a.alert_type}</td>
-        <td>${details.student_id || '-'}</td>
-        <td style="max-width:300px">${a.message}</td>
-        <td style="white-space:nowrap">${new Date(a.created_at).toLocaleString('tr-TR')}</td>
-        <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Çözülmemiş'}</span></td>
-        <td>${!a.is_resolved && isAdmin ? `<button class="btn btn-success btn-sm" onclick="resolveAlert('${a.id}')">✓ Çöz</button>` : ''}</td>
-      </tr>
-    `}).join('');
+        <tr>
+          <td><span class="badge badge-${escapeHtml(item.severity)}">${escapeHtml(severityLabels[item.severity] || item.severity)}</span></td>
+          <td>${escapeHtml(typeNames[item.alert_type] || item.alert_type)}</td>
+          <td>${escapeHtml(details.student_id || '-')}</td>
+          <td style="max-width:300px">${escapeHtml(item.message + repeats)}</td>
+          <td style="white-space:nowrap">${new Date(item.last_seen || item.created_at).toLocaleString('tr-TR')}</td>
+          <td><span class="badge ${item.is_resolved ? 'badge-resolved' : 'badge-active'}">${item.is_resolved ? 'Cozuldu' : 'Aktif'}</span></td>
+          <td>${item.is_resolved ? '' : `<button class="btn btn-success btn-sm" data-resolve-id="${escapeHtml(item.id)}">Coz</button>`}</td>
+        </tr>
+      `;
+    }).join('');
 
-  } catch (err) {
-    console.error('Load alerts error:', err);
+    tbody.querySelectorAll('[data-resolve-id]').forEach((button) => {
+      button.addEventListener('click', () => resolveAlert(button.dataset.resolveId));
+    });
+  } catch (error) {
+    console.error('Load alerts error:', error);
   }
 }
 
 async function resolveAlert(id) {
   try {
-    await apiRequest('/alerts/' + id + '/resolve', { method: 'PATCH' });
-    loadAlerts();
-    loadAlertStats();
-  } catch (err) {
-    alert('Hata: ' + err.message);
+    await apiRequest(`/alerts/${encodeURIComponent(id)}/resolve`, { method: 'PATCH' });
+    await Promise.all([loadAlerts(), loadAlertStats()]);
+  } catch (error) {
+    alert('Hata: ' + error.message);
   }
 }
 
 async function resolveAllAlerts() {
-  if (!confirm('Tüm çözülmemiş alarmları çözülmüş olarak işaretlemek istediğinizden emin misiniz?')) return;
+  if (!confirm('Tum aktif alarmlar cozulmus olarak isaretlensin mi?')) return;
   try {
     await apiRequest('/alerts/resolve-all', { method: 'PATCH' });
-    loadAlerts();
-    loadAlertStats();
-  } catch (err) {
-    alert('Hata: ' + err.message);
+    await Promise.all([loadAlerts(), loadAlertStats()]);
+  } catch (error) {
+    alert('Hata: ' + error.message);
   }
 }
