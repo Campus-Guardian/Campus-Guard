@@ -24,7 +24,12 @@ export default function EmergencyModal({ visible, onClose }) {
         [{ text: 'Tamam', style: 'cancel' }]
       );
     } catch (err) {
-      Alert.alert('Hata', 'Acil durum gönderilemedi: ' + err.message);
+      console.error('Emergency send error:', err);
+      Alert.alert(
+        'Hata',
+        'Acil durum gönderilemedi: ' + (err.message || 'Bilinmeyen hata'),
+        [{ text: 'Tamam' }]
+      );
     } finally {
       setSending(false);
     }

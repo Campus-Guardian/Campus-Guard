@@ -160,6 +160,9 @@ exports.createEmergency = async (req, res) => {
     res.status(201).json({ message: 'Acil durum alarmı oluşturuldu', data });
   } catch (err) {
     console.error('Create emergency error:', err);
-    res.status(500).json({ error: 'Acil durum alarmı oluşturulamadı' });
+    res.status(500).json({ 
+      error: 'Acil durum alarmı oluşturulamadı',
+      detail: err.message || String(err)
+    });
   }
 };

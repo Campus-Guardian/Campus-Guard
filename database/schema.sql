@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     'crowd_warning', 'crowd_critical',
     'restricted_zone', 'danger_zone',
     'abnormal_motion', 'speed_violation',
-    'inactivity', 'environmental'
+    'inactivity', 'environmental',
+    'emergency_health', 'emergency_security'
   )),
   severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
   message TEXT NOT NULL,
