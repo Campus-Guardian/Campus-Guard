@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   loadDashboard();
+  checkUnresolvedEmergencies();
 });
 
 async function loadDashboard() {
@@ -32,6 +33,62 @@ async function loadStats() {
   }
 }
 
+// ========= Acil Durum Ses Fonksiyonları =========
+function playAlarmSound() {
+  const audio = document.getElementById('alarmAudio');
+  if (audio) {
+    audio.currentTime = 0;
+    audio.play().catch(e => console.warn('Alarm sesi çalınamadı:', e));
+  }
+}
+
+function stopAlarmSound() {
+  const audio = document.getElementById('alarmAudio');
+  if (audio) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
+  const btn = document.getElementById('muteAlarmBtn');
+  if (btn) btn.textContent = '🔇 Ses Kapatıldı';
+}
+
+// ========= Acil Durum Banner =========
+function showEmergencyBanner(alert) {
+  const banner = document.getElementById('emergencyBanner');
+  if (!banner) return;
+  const textEl = document.getElementById('emergencyBannerText');
+  if (textEl && alert) {
+    const cat = alert.alert_type === 'emergency_health' ? '🏥 Sağlık' : '🔒 Güvenlik';
+    const who = (alert.details && alert.details.student_id) ? ` — Öğrenci: ${alert.details.student_id}` : '';
+    textEl.textContent = `🚨 ACİL DURUM [${cat}]${who} — Müdahale bekleniyor!`;
+  }
+  banner.classList.add('visible');
+  playAlarmSound();
+}
+
+function resolveEmergencyBanner() {
+  const banner = document.getElementById('emergencyBanner');
+  if (banner) banner.classList.remove('visible');
+  stopAlarmSound();
+}
+
+// Sayfa yüklendiğinde çözülmemiş acil durum var mı kontrol et
+async function checkUnresolvedEmergencies() {
+  try {
+    const res = await apiRequest('/alerts?resolved=false&limit=50');
+    if (!res || !res.data) return;
+    const emergencies = res.data.filter(a =>
+      a.alert_type === 'emergency_health' || a.alert_type === 'emergency_security'
+    );
+    if (emergencies.length > 0) {
+      showEmergencyBanner(emergencies[0]);
+    }
+  } catch (err) {
+    console.error('Emergency check error:', err);
+  }
+}
+
+// ========= Son Alarmlar — Emergency pinned =========
 async function loadRecentAlerts() {
   try {
     const res = await apiRequest('/alerts?limit=10&resolved=false');
@@ -46,22 +103,37 @@ async function loadRecentAlerts() {
     const typeNames = {
       'noise_warning': 'Gürültü', 'noise_critical': 'Gürültü', 'crowd_warning': 'Kalabalık',
       'crowd_critical': 'Kalabalık', 'restricted_zone': 'Kısıtlı Bölge', 'danger_zone': 'Tehlikeli Bölge',
-      'abnormal_motion': 'Hareket', 'speed_violation': 'Hız', 'inactivity': 'Hareketsizlik'
+      'abnormal_motion': 'Hareket', 'speed_violation': 'Hız', 'inactivity': 'Hareketsizlik',
+      'emergency_health': '🏥 Acil Sağlık', 'emergency_security': '🔒 Acil Güvenlik'
     };
 
-    container.innerHTML = res.data.map(a => `
-      <div class="alert-item ${a.severity === 'critical' ? 'pulse' : ''}">
+    // Emergency alarmları en başa pin'le
+    const emergencies = res.data.filter(a =>
+      a.alert_type === 'emergency_health' || a.alert_type === 'emergency_security'
+    );
+    const others = res.data.filter(a =>
+      a.alert_type !== 'emergency_health' && a.alert_type !== 'emergency_security'
+    );
+    const sorted = [...emergencies, ...others];
+
+    container.innerHTML = sorted.map(a => {
+      const isEmergency = a.alert_type === 'emergency_health' || a.alert_type === 'emergency_security';
+      const pinIcon = isEmergency ? '📌 ' : '';
+      const emergencyClass = isEmergency ? ' emergency-pinned' : '';
+      return `
+      <div class="alert-item ${a.severity === 'critical' ? 'pulse' : ''}${emergencyClass}">
         <div class="alert-icon ${a.severity}">
           ${severityIcons[a.severity] || '🔔'}
         </div>
         <div class="alert-content">
-          <div class="alert-title">${typeNames[a.alert_type] || a.alert_type}</div>
+          <div class="alert-title">${pinIcon}${typeNames[a.alert_type] || a.alert_type}</div>
           <div class="alert-text">${a.message}</div>
           <div class="alert-time">${new Date(a.created_at).toLocaleString('tr-TR')}</div>
         </div>
         <span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (err) {
     console.error('Recent alerts error:', err);
   }
