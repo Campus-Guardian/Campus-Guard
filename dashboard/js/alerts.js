@@ -66,13 +66,14 @@ async function loadAlerts() {
       <tr class="${isEmergency ? 'emergency-pinned' : ''}"${emergencyStyle}>
         <td><span class="badge badge-${a.severity}">${severityLabels[a.severity] || a.severity}</span></td>
         <td>${typeNames[a.alert_type] || a.alert_type}</td>
-        <td>${details.student_id || '-'}</td>
+        <td>${details.id || '-'}</td>
         <td style="max-width:300px">${a.message}</td>
         <td style="white-space:nowrap">${new Date(a.created_at).toLocaleString('tr-TR')}</td>
         <td><span class="badge ${a.is_resolved ? 'badge-resolved' : 'badge-active'}">${a.is_resolved ? 'Çözüldü' : 'Çözülmemiş'}</span></td>
         <td>${!a.is_resolved && isAdmin ? `<button class="btn btn-success btn-sm" onclick="resolveAlert('${a.id}')">✓ Çöz</button>` : ''}</td>
       </tr>
-    `;}).join('');
+    `;
+    }).join('');
 
   } catch (err) {
     console.error('Load alerts error:', err);
