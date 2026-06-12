@@ -3,7 +3,9 @@ let simMap = null;
 let simMarker = null;
 let simLat = null;
 let simLng = null;
-let dangerZones = [];
+let allZones = []; // tüm bölgeler (normal, restricted, danger)
+
+let bulkSimMap = null; // Bulk sekme haritası
 
 const CAMPUS_CENTER = [40.1889, 29.1310];
 const CAMPUS_BOUNDS = L.latLngBounds(
@@ -78,36 +80,88 @@ async function deleteDevice(id) {
 // ======== Simülatör ========
 async function showSimulator() {
   document.getElementById('simModal').classList.add('show');
-  await loadDangerZones();
+  await loadAllZones();
   initSimMap();
 }
 
 async function openSimForDevice(deviceId, studentId) {
   document.getElementById('simModal').classList.add('show');
-  await loadDangerZones();
+  await loadAllZones();
   initSimMap();
 }
 
-async function loadDangerZones() {
+// Tüm bölgeleri yükle (filtre yok)
+async function loadAllZones() {
   try {
     const res = await apiRequest('/zones');
     if (!res || !res.data) return;
-    dangerZones = res.data.filter(z => z.type === 'danger' || z.type === 'restricted');
+    allZones = res.data; // tüm tipler: normal, restricted, danger
 
+    // Tek cihaz sekmesi: "Bölgeye gönder" butonları
     const container = document.getElementById('dangerZonesBtns');
-    if (dangerZones.length === 0) {
+    if (allZones.length === 0) {
       container.innerHTML = '';
       return;
     }
+
+    // Her bölgeye uygun renk sınıfı
+    const btnClass = (type) => {
+      if (type === 'danger') return 'zone-btn-danger';
+      if (type === 'restricted') return 'zone-btn-restricted';
+      return 'zone-btn-normal';
+    };
+
     container.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">Bölgeye gönder:</span>' +
-      dangerZones.map(z =>
-        `<button class="dz-btn" onclick="jumpToZone('${z.id}')">${z.name}</button>`
+      allZones.map(z =>
+        `<button class="dz-btn ${btnClass(z.type)}" onclick="jumpToZone('${z.id}')">${z.name}</button>`
       ).join('');
+
+    // Bulk sekmesi: checkbox listesi
+    renderBulkZoneCheckboxes();
   } catch (err) { console.error(err); }
 }
 
+function renderBulkZoneCheckboxes() {
+  const container = document.getElementById('bulkZoneCheckboxes');
+  if (!container) return;
+
+  if (allZones.length === 0) {
+    container.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Bölge bulunamadı</span>';
+    return;
+  }
+
+  const typeLabel = { normal: 'Normal', restricted: 'Kısıtlı', danger: 'Tehlikeli' };
+  const typeColor = { normal: '#3b82f6', restricted: '#f59e0b', danger: '#ef4444' };
+
+  container.innerHTML = allZones.map(z => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:3px 0;">
+      <input type="checkbox" class="bulk-zone-cb" value="${z.id}" style="width:14px;height:14px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${typeColor[z.type] || '#888'};display:inline-block;flex-shrink:0;"></span>
+      <span style="color:var(--text-primary)">${z.name}</span>
+      <span style="color:var(--text-muted);font-size:10px;">[${typeLabel[z.type] || z.type}]</span>
+    </label>
+  `).join('');
+}
+
+function selectAllBulkZones() {
+  document.querySelectorAll('.bulk-zone-cb').forEach(cb => cb.checked = true);
+}
+
+function clearAllBulkZones() {
+  document.querySelectorAll('.bulk-zone-cb').forEach(cb => cb.checked = false);
+}
+
+function getSelectedBulkZones() {
+  const selected = [];
+  document.querySelectorAll('.bulk-zone-cb:checked').forEach(cb => {
+    const zone = allZones.find(z => z.id === cb.value);
+    if (zone) selected.push(zone);
+  });
+  return selected;
+}
+
 function jumpToZone(zoneId) {
-  const zone = dangerZones.find(z => z.id === zoneId);
+  const zone = allZones.find(z => z.id === zoneId);
   if (!zone || !zone.polygon || zone.polygon.length === 0) return;
   // Polygon merkezi hesapla
   const lats = zone.polygon.map(p => p[0]);
@@ -116,6 +170,40 @@ function jumpToZone(zoneId) {
   const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
   setSimLocation(centerLat, centerLng);
   simMap.setView([centerLat, centerLng], 18);
+}
+
+// Polygon içinde rastgele nokta üret
+function randomPointInPolygon(polygon) {
+  const lats = polygon.map(p => p[0]);
+  const lngs = polygon.map(p => p[1]);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+
+  let attempts = 0;
+  while (attempts < 100) {
+    const lat = minLat + Math.random() * (maxLat - minLat);
+    const lng = minLng + Math.random() * (maxLng - minLng);
+    if (isPointInPolygon([lat, lng], polygon)) return [lat, lng];
+    attempts++;
+  }
+  // Fallback: merkez
+  const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+  const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+  return [centerLat, centerLng];
+}
+
+// Ray-casting algoritması
+function isPointInPolygon(point, polygon) {
+  const [px, py] = point;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    const intersect = ((yi > py) !== (yj > py)) &&
+      (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 function initSimMap() {
@@ -136,17 +224,50 @@ function initSimMap() {
       attribution: '&copy; OSM &copy; CARTO', maxZoom: 19
     }).addTo(simMap);
 
-    // Mevcut bölgeleri göster
-    dangerZones.forEach(z => {
+    // Tüm bölgeleri göster (tip rengine göre)
+    const zoneColors = { normal: '#3b82f6', restricted: '#f59e0b', danger: '#ef4444' };
+    allZones.forEach(z => {
       if (z.polygon && z.polygon.length >= 3) {
-        L.polygon(z.polygon, { color: z.color || '#ef4444', fillOpacity: 0.15, weight: 1.5 })
+        const color = zoneColors[z.type] || z.color || '#3b82f6';
+        L.polygon(z.polygon, { color, fillOpacity: 0.15, weight: 1.5 })
           .addTo(simMap)
-          .bindPopup(`<b>${z.name}</b>`);
+          .bindPopup(`<b>${z.name}</b><br><small>${z.type}</small>`);
       }
     });
 
     simMap.on('click', (e) => {
       setSimLocation(e.latlng.lat, e.latlng.lng);
+    });
+  }, 200);
+}
+
+function initBulkSimMap() {
+  if (bulkSimMap) {
+    bulkSimMap.invalidateSize();
+    return;
+  }
+
+  setTimeout(() => {
+    bulkSimMap = L.map('bulkSimMap', {
+      minZoom: 15,
+      maxZoom: 19,
+      maxBounds: CAMPUS_BOUNDS,
+      maxBoundsViscosity: 1.0
+    }).setView(CAMPUS_CENTER, 16);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO', maxZoom: 19
+    }).addTo(bulkSimMap);
+
+    // Tüm bölgeleri göster
+    const zoneColors = { normal: '#3b82f6', restricted: '#f59e0b', danger: '#ef4444' };
+    allZones.forEach(z => {
+      if (z.polygon && z.polygon.length >= 3) {
+        const color = zoneColors[z.type] || z.color || '#3b82f6';
+        L.polygon(z.polygon, { color, fillOpacity: 0.15, weight: 1.5 })
+          .addTo(bulkSimMap)
+          .bindPopup(`<b>${z.name}</b><br><small>${z.type}</small>`);
+      }
     });
   }, 200);
 }
@@ -187,12 +308,9 @@ function switchSimTab(tab) {
   } else {
     document.querySelector('.sim-tab-btn:nth-child(2)').classList.add('active');
     document.getElementById('simTabBulk').classList.add('active');
+    // Bulk haritasını başlat
+    initBulkSimMap();
   }
-}
-
-function updateSliderVal(sliderId, valId, unit) {
-  const val = parseFloat(document.getElementById(sliderId).value);
-  document.getElementById(valId).textContent = val + unit;
 }
 
 function applyPreset(type) {
@@ -376,16 +494,35 @@ async function startBulkSim() {
     const maxPackets = parseInt(document.getElementById('bulkMaxPackets').value) || 0;
     const mode = document.getElementById('bulkPreset').value;
 
+    // Seçili bölgeler
+    const selectedZones = getSelectedBulkZones();
+
     let startedCount = 0;
 
-    testDevices.forEach(d => {
+    testDevices.forEach((d, idx) => {
       if (activeSimulators[d.id]) {
         stopSimulator(d.id);
       }
 
-      // Initial coordinates
-      let deviceLat = d.last_latitude || (CAMPUS_CENTER[0] + (Math.random() - 0.5) * 0.003);
-      let deviceLng = d.last_longitude || (CAMPUS_CENTER[1] + (Math.random() - 0.5) * 0.003);
+      // Bölge seçildiyse round-robin ile dağıt
+      let deviceLat, deviceLng;
+      if (selectedZones.length > 0) {
+        const zone = selectedZones[idx % selectedZones.length];
+        if (zone.polygon && zone.polygon.length >= 3) {
+          const pt = randomPointInPolygon(zone.polygon);
+          deviceLat = pt[0];
+          deviceLng = pt[1];
+        } else {
+          const lats = (zone.polygon || []).map(p => p[0]);
+          const lngs = (zone.polygon || []).map(p => p[1]);
+          deviceLat = lats.length ? lats.reduce((a,b)=>a+b,0)/lats.length : CAMPUS_CENTER[0];
+          deviceLng = lngs.length ? lngs.reduce((a,b)=>a+b,0)/lngs.length : CAMPUS_CENTER[1];
+        }
+      } else {
+        // Bölge seçilmediyse kampüs genelinde rastgele
+        deviceLat = d.last_latitude || (CAMPUS_CENTER[0] + (Math.random() - 0.5) * 0.003);
+        deviceLng = d.last_longitude || (CAMPUS_CENTER[1] + (Math.random() - 0.5) * 0.003);
+      }
 
       const sim = {
         id: d.id,
@@ -417,11 +554,11 @@ async function startBulkSim() {
               speed = parseFloat((3 + Math.random() * 6).toFixed(1));
               
               // Shift towards first danger zone center
-              if (dangerZones && dangerZones.length > 0) {
-                const zone = dangerZones[0];
-                if (zone.polygon && zone.polygon.length > 0) {
-                  const lats = zone.polygon.map(p => p[0]);
-                  const lngs = zone.polygon.map(p => p[1]);
+              if (allZones && allZones.length > 0) {
+                const dangerZone = allZones.find(z => z.type === 'danger') || allZones[0];
+                if (dangerZone.polygon && dangerZone.polygon.length > 0) {
+                  const lats = dangerZone.polygon.map(p => p[0]);
+                  const lngs = dangerZone.polygon.map(p => p[1]);
                   const cLat = lats.reduce((a, b) => a + b, 0) / lats.length;
                   const cLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
                   
@@ -468,7 +605,8 @@ async function startBulkSim() {
     });
 
     updateSimsUI();
-    showSimResult(`🚀 ${startedCount} test cihazı için toplu simülasyon başlatıldı.`, 'ok');
+    const zoneInfo = selectedZones.length > 0 ? ` (${selectedZones.length} bölgeye dağıtıldı)` : '';
+    showSimResult(`🚀 ${startedCount} test cihazı için toplu simülasyon başlatıldı${zoneInfo}.`, 'ok');
   } catch (err) {
     showSimResult('❌ Hata: ' + err.message, 'error');
   }
@@ -594,4 +732,3 @@ function showSimResult(msg, type) {
     if (el.textContent === msg) el.textContent = '';
   }, 6000);
 }
-

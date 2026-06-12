@@ -20,6 +20,23 @@ function initSocket() {
     if (typeof loadAlerts === 'function') loadAlerts();
   });
 
+  // Acil durum alarmı
+  socket.on('emergency-alert', (alert) => {
+    console.log('[Socket] EMERGENCY alert:', alert);
+    if (typeof playAlarmSound === 'function') playAlarmSound();
+    if (typeof showEmergencyBanner === 'function') showEmergencyBanner(alert);
+    const countEl = document.getElementById('alertCount');
+    if (countEl) countEl.textContent = parseInt(countEl.textContent || '0') + 1;
+    if (typeof loadDashboard === 'function') loadDashboard();
+    if (typeof loadAlerts === 'function') loadAlerts();
+  });
+
+  socket.on('alert-count-update', () => {
+    console.log('[Socket] Alert count update');
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadAlertStats === 'function') loadAlertStats();
+  });
+
   socket.on('all-alerts-resolved', () => {
     console.log('[Socket] All alerts resolved');
     const countEl = document.getElementById('alertCount');

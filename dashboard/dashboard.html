@@ -7,8 +7,69 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js">
+  <style>
+    /* Emergency Banner */
+    #emergencyBanner {
+      display: none;
+      background: linear-gradient(90deg, #7f1d1d, #ef4444, #7f1d1d);
+      background-size: 200% 100%;
+      animation: emergencyPulse 2s linear infinite;
+      color: white;
+      padding: 12px 24px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.3px;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+    }
+    #emergencyBanner.visible { display: flex; }
+    @keyframes emergencyPulse {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 200% 0%; }
+    }
+    .emergency-banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+    .emergency-banner-actions button {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.5);
+      color: white;
+      padding: 4px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .emergency-banner-actions button:hover { background: rgba(255,255,255,0.35); }
+    /* Pinned emergency alert in recent alerts */
+    .alert-item.emergency-pinned {
+      border-left: 4px solid #ef4444 !important;
+      background: rgba(239,68,68,0.06) !important;
+      order: -1;
+    }
+    /* Pinned emergency row in alerts table */
+    tr.emergency-pinned td:first-child::before {
+      content: '\1F4CC ';
+    }
+  </style>
 </head>
 <body>
+  <!-- Alarm Sesi -->
+  <audio id="alarmAudio" src="sounds/alarm.mp3" loop preload="auto"></audio>
+
+  <!-- Acil Durum Banner -->
+  <div id="emergencyBanner">
+    <span id="emergencyBannerText">🚨 ACİL DURUM ALARMI — Müdahale bekleniyor!</span>
+    <div class="emergency-banner-actions">
+      <button id="muteAlarmBtn" onclick="stopAlarmSound()">🔇 Sesi Kapat</button>
+      <button onclick="resolveEmergencyBanner()">✓ Çözüldü</button>
+    </div>
+  </div>
+
   <div class="app-layout">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">

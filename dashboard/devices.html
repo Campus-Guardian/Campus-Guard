@@ -16,6 +16,19 @@
     .danger-zones-list { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
     .dz-btn { font-size:11px; padding:4px 10px; border-radius:16px; border:1px solid var(--danger); color:var(--danger); background:var(--danger-light); cursor:pointer; }
     .dz-btn:hover { background:var(--danger); color:white; }
+    /* Zone button color variants */
+    .zone-btn-danger { border-color:#ef4444 !important; color:#ef4444 !important; background:rgba(239,68,68,0.08) !important; }
+    .zone-btn-danger:hover { background:#ef4444 !important; color:white !important; }
+    .zone-btn-restricted { border-color:#f59e0b !important; color:#f59e0b !important; background:rgba(245,158,11,0.08) !important; }
+    .zone-btn-restricted:hover { background:#f59e0b !important; color:white !important; }
+    .zone-btn-normal { border-color:#3b82f6 !important; color:#3b82f6 !important; background:rgba(59,130,246,0.08) !important; }
+    .zone-btn-normal:hover { background:#3b82f6 !important; color:white !important; }
+    /* Bulk sim map */
+    #bulkSimMap { height:220px; width:100%; border-radius:8px; border:1px solid var(--border); margin-bottom:12px; }
+    .bulk-zone-panel { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+    .bulk-zone-panel-title { font-size:11px; font-weight:bold; color:var(--primary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+    .bulk-zone-list { max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+    .bulk-zone-actions { display:flex; gap:8px; margin-bottom:8px; }
     
     /* Advanced Simulator Tab & Layout Styles */
     .sim-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; gap: 8px; }
@@ -207,6 +220,26 @@
 
         <!-- SEKME 2: Toplu (Bulk) Simülasyon -->
         <div id="simTabBulk" class="sim-tab-content">
+
+          <!-- Bulk Harita -->
+          <div class="form-group">
+            <label>🗺️ Kampüs Haritası — Bölgeler</label>
+            <div id="bulkSimMap"></div>
+          </div>
+
+          <!-- Bölge Seçimi -->
+          <div class="bulk-zone-panel">
+            <div class="bulk-zone-panel-title">📍 Bölge Seçimi (Cihazlar seçili bölgelere dağıtılır)</div>
+            <div class="bulk-zone-actions">
+              <button class="btn btn-sm btn-outline" onclick="selectAllBulkZones()">✅ Tümünü Seç</button>
+              <button class="btn btn-sm btn-outline" onclick="clearAllBulkZones()">✖ Temizle</button>
+              <span style="font-size:11px;color:var(--text-muted);align-self:center">Seçilmezse kampüs genelinde rastgele dağıtılır</span>
+            </div>
+            <div class="bulk-zone-list" id="bulkZoneCheckboxes">
+              <span style="font-size:12px;color:var(--text-muted)">Bölgeler yükleniyor...</span>
+            </div>
+          </div>
+
           <!-- Test Grubu Yönetimi -->
           <div class="sim-card-panel">
             <div class="sim-panel-title">Test Grubu Yönetimi (Veritabanı)</div>
