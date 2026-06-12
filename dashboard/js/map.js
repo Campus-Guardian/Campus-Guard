@@ -4,6 +4,41 @@ let deviceMarkers = {};
 let zonePolygons = {};
 let zoneAlertCounters = {};
 
+// Acil durum marker'ları için animasyonlu halka overlay'leri
+let emergencyRingLayers = {}; // deviceId -> L.Marker (DivIcon)
+
+/**
+ * Bir Leaflet marker'a 3 katmanlı animasyonlu kırmızı halka overlay'i ekler.
+ * Sadece isEmergency === true olduğunda çağrılır.
+ */
+function createEmergencyRing(deviceId, marker) {
+  removeEmergencyRing(deviceId); // Öncekini temizle
+
+  const ringIcon = L.divIcon({
+    className: 'emergency-ring-overlay',
+    html: '<div class="ring"></div><div class="ring"></div><div class="ring"></div>',
+    iconSize: [0, 0],
+    iconAnchor: [0, 0]
+  });
+
+  const ringMarker = L.marker(marker.getLatLng(), {
+    icon: ringIcon,
+    interactive: false,
+    zIndexOffset: -100
+  }).addTo(dashboardMap);
+
+  emergencyRingLayers[deviceId] = ringMarker;
+}
+
+/** Bir deviceId'ye ait halka overlay'ini kaldırır. */
+function removeEmergencyRing(deviceId) {
+  const existing = emergencyRingLayers[deviceId];
+  if (existing && dashboardMap) {
+    dashboardMap.removeLayer(existing);
+  }
+  delete emergencyRingLayers[deviceId];
+}
+
 const CAMPUS_CENTER = [40.1889, 29.1310];
 const CAMPUS_ZOOM = 17;
 
@@ -73,10 +108,11 @@ async function loadMapData() {
       });
     }
 
-    // Load live devices (now includes active_alerts, student_id and emergency_type)
     const devRes = await apiRequest('/dashboard/live-devices');
     if (devRes && devRes.data) {
+      // Tüm marker'ları ve halkaları temizle
       Object.values(deviceMarkers).forEach(m => dashboardMap.removeLayer(m));
+      Object.keys(emergencyRingLayers).forEach(id => removeEmergencyRing(id));
       deviceMarkers = {};
 
       devRes.data.forEach(dev => {
@@ -98,7 +134,7 @@ async function loadMapData() {
           if (isEmergency) {
             markerColor = '#dc2626';
             fillColor   = '#ef4444';
-            radius      = 16;
+            radius      = 14;
             weight      = 3;
           } else if (alerts.some(a => a.severity === 'critical')) {
             markerColor = '#ef4444'; fillColor = '#f87171';
@@ -113,9 +149,7 @@ async function loadMapData() {
             color: markerColor,
             fillColor,
             fillOpacity: 0.9,
-            weight,
-            // Acil durum markerı için özel CSS sınıfı (nabız animasyonu)
-            className: isEmergency ? 'emergency-pulse' : ''
+            weight
           }).addTo(dashboardMap);
 
           // Acil durum popup içeriği
@@ -141,14 +175,19 @@ async function loadMapData() {
           }
 
           marker.bindPopup(popupHtml);
+
           if (isEmergency) {
-            marker._isEmergency = true; // updateDeviceOnMap bu bayrağı kontrol eder
+            marker._isEmergency = true;
             marker.openPopup();
+            // ACİL DURUM → kırmızı animasyonlu halka ekle
+            createEmergencyRing(dev.id, marker);
           }
+
           deviceMarkers[dev.id] = marker;
         }
       });
     }
+
 
   } catch (err) {
     console.error('Map data error:', err);
@@ -158,13 +197,18 @@ async function loadMapData() {
 function updateDeviceOnMap(data) {
   if (!dashboardMap || !data.latitude || !data.longitude) return;
 
-  // Mevcut marker acil durum marker'ıysa (büyük kırmızı) — dokunma, tam yenileme bekle
+  // Mevcut marker acil durum marker'ıysa — sadece konumu güncelle + halkayı taşı
   const existingMarker = deviceMarkers[data.device_id];
   if (existingMarker && existingMarker._isEmergency) {
-    // Sadece konumu güncelle, rengi ve boyutu koru
     existingMarker.setLatLng([data.latitude, data.longitude]);
+    // Halka overlay'i de yeni konuma taşı
+    const ring = emergencyRingLayers[data.device_id];
+    if (ring) ring.setLatLng([data.latitude, data.longitude]);
     return;
   }
+
+  // Normal sensor güncellemesi — acil durum yoksa halka da olmamalı
+  removeEmergencyRing(data.device_id);
 
   // Determine marker color in real-time based on active packet alerts
   const alerts = data.active_alerts || [];
