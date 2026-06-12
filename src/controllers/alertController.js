@@ -125,12 +125,12 @@ exports.createEmergency = async (req, res) => {
     const alertData = {
       alert_type: alertType,
       severity: 'critical',
-      // Mesajda sadece kategori bilgisi — kişisel bilgi yok
-      message: `ACİL DURUM [${categoryLabel}]`,
+      message: `ACİL DURUM [${categoryLabel}]: ${user.student_id || user.email || 'Bilinmeyen kullanıcı'} tarafından tetiklendi.`,
       is_resolved: false,
       details: {
-        student_id: user.student_id || "23360859054" || null,
+        student_id: user.student_id || null,
         user_id: user.id,
+        email: user.email || null,
         category,
         triggered_at: new Date().toISOString()
       }
