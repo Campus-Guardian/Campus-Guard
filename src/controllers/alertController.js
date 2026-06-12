@@ -129,7 +129,7 @@ exports.createEmergency = async (req, res) => {
       message: `ACİL DURUM [${categoryLabel}]`,
       is_resolved: false,
       details: {
-        student_id: user.student_id || "23360859046" || null,
+        student_id: user.student_id || "23360859054" || null,
         user_id: user.id,
         category,
         triggered_at: new Date().toISOString()
