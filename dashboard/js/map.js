@@ -73,7 +73,7 @@ async function loadMapData() {
       });
     }
 
-    // Load live devices (now includes active_alerts and student_id)
+    // Load live devices (now includes active_alerts, student_id and emergency_type)
     const devRes = await apiRequest('/dashboard/live-devices');
     if (devRes && devRes.data) {
       Object.values(deviceMarkers).forEach(m => dashboardMap.removeLayer(m));
@@ -81,41 +81,75 @@ async function loadMapData() {
 
       devRes.data.forEach(dev => {
         if (dev.last_latitude && dev.last_longitude) {
-          // Alarm durumuna göre renk
-          let markerColor = '#3b82f6';  // varsayılan: mavi
-          let fillColor = '#60a5fa';
           const alerts = dev.active_alerts || [];
+          const isEmergency = !!dev.emergency_type;
 
-          if (alerts.some(a => a.severity === 'critical')) {
-            markerColor = '#ef4444'; fillColor = '#f87171'; // kırmızı
+          // ===== Renk Öncelik Sırası =====
+          // 1. Acil durum → parlak kırmızı + büyük
+          // 2. Kritik alarm → kırmızı
+          // 3. Gürültü → turuncu
+          // 4. Diğer alarm → sarı
+          // 5. Normal → mavi
+          let markerColor = '#3b82f6';
+          let fillColor   = '#60a5fa';
+          let radius      = 10;
+          let weight      = 2;
+
+          if (isEmergency) {
+            markerColor = '#dc2626';
+            fillColor   = '#ef4444';
+            radius      = 16;
+            weight      = 3;
+          } else if (alerts.some(a => a.severity === 'critical')) {
+            markerColor = '#ef4444'; fillColor = '#f87171';
           } else if (alerts.some(a => a.type && a.type.includes('noise'))) {
-            markerColor = '#f97316'; fillColor = '#fb923c'; // turuncu
+            markerColor = '#f97316'; fillColor = '#fb923c';
           } else if (alerts.length > 0) {
-            markerColor = '#f59e0b'; fillColor = '#fbbf24'; // sarı
+            markerColor = '#f59e0b'; fillColor = '#fbbf24';
           }
 
           const marker = L.circleMarker([dev.last_latitude, dev.last_longitude], {
-            radius: 10,
+            radius,
             color: markerColor,
-            fillColor: fillColor,
+            fillColor,
             fillOpacity: 0.9,
-            weight: 2
+            weight,
+            // Acil durum markerı için özel CSS sınıfı (nabız animasyonu)
+            className: isEmergency ? 'emergency-pulse' : ''
           }).addTo(dashboardMap);
 
-          const alertBadge = alerts.length > 0
-            ? `<br><span style="color:${markerColor};font-weight:bold">⚠️ ${alerts.length} aktif alarm</span>`
-            : '';
+          // Acil durum popup içeriği
+          let popupHtml = '';
+          if (isEmergency) {
+            const eCat = dev.emergency_type === 'emergency_health' ? '🏥 Sağlık' : '🔒 Güvenlik';
+            popupHtml =
+              `<div style="font-size:13px;line-height:1.6">` +
+              `<b style="color:#dc2626;font-size:14px">🚨 ACİL DURUM [${eCat}]</b><br>` +
+              `<b>Öğrenci No: ${dev.student_id || dev.device_name}</b><br>` +
+              `Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}<br>` +
+              `Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
+              `</div>`;
+          } else {
+            const alertBadge = alerts.length > 0
+              ? `<br><span style="color:${markerColor};font-weight:bold">⚠️ ${alerts.length} aktif alarm</span>`
+              : '';
+            popupHtml =
+              `<b>Öğrenci No: ${dev.student_id || dev.device_name}</b>` +
+              `<br>Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}` +
+              `<br>Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
+              alertBadge;
+          }
 
-          marker.bindPopup(
-            `<b>Öğrenci No: ${dev.student_id || dev.device_name}</b>` +
-            `<br>Son görülme: ${new Date(dev.last_seen).toLocaleString('tr-TR')}` +
-            `<br>Konum: ${dev.last_latitude.toFixed(5)}, ${dev.last_longitude.toFixed(5)}` +
-            alertBadge
-          );
+          marker.bindPopup(popupHtml);
+          if (isEmergency) {
+            marker._isEmergency = true; // updateDeviceOnMap bu bayrağı kontrol eder
+            marker.openPopup();
+          }
           deviceMarkers[dev.id] = marker;
         }
       });
     }
+
   } catch (err) {
     console.error('Map data error:', err);
   }
@@ -123,6 +157,14 @@ async function loadMapData() {
 
 function updateDeviceOnMap(data) {
   if (!dashboardMap || !data.latitude || !data.longitude) return;
+
+  // Mevcut marker acil durum marker'ıysa (büyük kırmızı) — dokunma, tam yenileme bekle
+  const existingMarker = deviceMarkers[data.device_id];
+  if (existingMarker && existingMarker._isEmergency) {
+    // Sadece konumu güncelle, rengi ve boyutu koru
+    existingMarker.setLatLng([data.latitude, data.longitude]);
+    return;
+  }
 
   // Determine marker color in real-time based on active packet alerts
   const alerts = data.active_alerts || [];
@@ -145,11 +187,10 @@ function updateDeviceOnMap(data) {
     `Hız: ${data.speed ? data.speed.toFixed(1) + ' km/h' : '-'}<br>` +
     `Güncelleme: ${new Date(data.timestamp || Date.now()).toLocaleTimeString('tr-TR')}`;
 
-  if (deviceMarkers[data.device_id]) {
-    const marker = deviceMarkers[data.device_id];
-    marker.setLatLng([data.latitude, data.longitude]);
-    marker.setStyle({ color: markerColor, fillColor: fillColor });
-    marker.setPopupContent(popupContent);
+  if (existingMarker) {
+    existingMarker.setLatLng([data.latitude, data.longitude]);
+    existingMarker.setStyle({ color: markerColor, fillColor: fillColor });
+    existingMarker.setPopupContent(popupContent);
   } else {
     const marker = L.circleMarker([data.latitude, data.longitude], {
       radius: 10, color: markerColor, fillColor: fillColor, fillOpacity: 0.9, weight: 2
@@ -211,6 +252,11 @@ function setupMapSocketListeners() {
               poly.setStyle({ color: '#ef4444', fillColor: '#ef4444' });
             }
           }
+        });
+
+        // Acil durum alarmı → haritayı hemen yenile (kırmızı marker görünsün)
+        window.socket.on('emergency-alert', () => {
+          loadMapData();
         });
 
         window.socket.on('sensor-update', (data) => {

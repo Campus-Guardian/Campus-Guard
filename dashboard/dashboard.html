@@ -76,6 +76,16 @@
     tr.emergency-pinned td:first-child::before {
       content: '\1F4CC ';
     }
+
+    /* Haritada acil durum markerı için nabız animasyonu */
+    @keyframes emergencyMarkerPulse {
+      0%   { opacity: 1;   stroke-width: 3px; }
+      50%  { opacity: 0.5; stroke-width: 6px; }
+      100% { opacity: 1;   stroke-width: 3px; }
+    }
+    .leaflet-interactive.emergency-pulse {
+      animation: emergencyMarkerPulse 1s ease-in-out infinite;
+    }
   </style>
 </head>
 

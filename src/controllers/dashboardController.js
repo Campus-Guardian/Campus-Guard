@@ -88,7 +88,7 @@ exports.getLiveDevices = async (req, res) => {
     if (error) throw error;
     if (!devices || devices.length === 0) return res.json({ data: [] });
 
-    // Öğrenci bilgisi ve aktif alarm bilgisi çek
+    // Öğrenci bilgisi çek
     const userIds = [...new Set(devices.filter(d => d.user_id).map(d => d.user_id))];
     const deviceIds = devices.map(d => d.id);
 
@@ -103,7 +103,7 @@ exports.getLiveDevices = async (req, res) => {
       }
     }
 
-    // Aktif alarmlar
+    // Aktif alarmlar (cihaz bazlı)
     const { data: activeAlerts } = await supabase
       .from('alerts')
       .select('device_id, alert_type, severity')
@@ -118,11 +118,29 @@ exports.getLiveDevices = async (req, res) => {
       });
     }
 
+    // Acil durum alarmları (device_id olmayabilir, user_id ile eşleştirilir)
+    const { data: emergencyAlerts } = await supabase
+      .from('alerts')
+      .select('details, alert_type')
+      .eq('is_resolved', false)
+      .in('alert_type', ['emergency_health', 'emergency_security']);
+
+    // user_id → has_emergency haritası
+    const emergencyUserMap = {};
+    if (emergencyAlerts) {
+      emergencyAlerts.forEach(a => {
+        const uid = a.details && a.details.user_id;
+        if (uid) emergencyUserMap[uid] = a.alert_type;
+      });
+    }
+
     const enrichedDevices = devices.map(d => ({
       ...d,
       student_id: d.user_id && usersMap[d.user_id] ? usersMap[d.user_id].student_id : null,
       user_name: d.user_id && usersMap[d.user_id] ? usersMap[d.user_id].full_name : null,
-      active_alerts: alertMap[d.id] || []
+      active_alerts: alertMap[d.id] || [],
+      // Acil durum bayrağı: bu kullanıcının açık acil alarm var mı?
+      emergency_type: d.user_id ? (emergencyUserMap[d.user_id] || null) : null
     }));
 
     res.json({ data: enrichedDevices });
@@ -131,6 +149,7 @@ exports.getLiveDevices = async (req, res) => {
     res.status(500).json({ error: 'Aktif cihazlar alınamadı' });
   }
 };
+
 
 // Bölge yoğunlukları
 exports.getZoneDensity = async (req, res) => {
