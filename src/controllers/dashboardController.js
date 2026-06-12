@@ -79,13 +79,75 @@ exports.getTimeSeriesData = async (req, res) => {
 exports.getLiveDevices = async (req, res) => {
   try {
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: devices, error } = await supabase
+
+    // Acil durumu olan kullanıcı UUID'lerini önce bul
+    const { data: emergencyAlertsFetch } = await supabase
+      .from('alerts')
+      .select('details, alert_type')
+      .eq('is_resolved', false)
+      .in('alert_type', ['emergency_health', 'emergency_security']);
+
+    // details.user_id (UUID veya email) listesi
+    const emergencyUserIds = new Set();
+    const emergencyRawMap = {}; // rawValue → alert_type
+    if (emergencyAlertsFetch) {
+      emergencyAlertsFetch.forEach(a => {
+        const raw = a.details && a.details.user_id;
+        if (raw) {
+          emergencyUserIds.add(raw);
+          emergencyRawMap[raw] = a.alert_type;
+        }
+      });
+    }
+
+    // Son 5 dakikada aktif olan cihazlar
+    const { data: recentDevices, error } = await supabase
       .from('devices')
       .select('id, device_name, last_latitude, last_longitude, last_seen, device_type, user_id')
       .eq('is_active', true)
       .gte('last_seen', fiveMinAgo);
 
     if (error) throw error;
+
+    // Acil durumu olan kullanıcıların cihazlarını ayrıca çek (last_seen bağımsız)
+    let emergencyDevices = [];
+    if (emergencyUserIds.size > 0) {
+      // Önce email/student_id → UUID çevirisini yapalım (karışık format için)
+      const { data: euUsers } = await supabase
+        .from('users')
+        .select('id, email, student_id')
+        .in('email', [...emergencyUserIds])
+        .or([...emergencyUserIds].map(v => `student_id.eq.${v}`).join(','));
+
+      const emailToUuid = {};
+      if (euUsers) {
+        euUsers.forEach(u => {
+          if (u.email) emailToUuid[u.email] = u.id;
+          if (u.student_id) emailToUuid[u.student_id] = u.id;
+        });
+      }
+
+      // emergencyUserIds'deki değerleri UUID'ye çevir
+      const emergencyUuids = [...emergencyUserIds].map(raw => emailToUuid[raw] || raw);
+
+      if (emergencyUuids.length > 0) {
+        const { data: eDevices } = await supabase
+          .from('devices')
+          .select('id, device_name, last_latitude, last_longitude, last_seen, device_type, user_id')
+          .eq('is_active', true)
+          .in('user_id', emergencyUuids);
+
+        emergencyDevices = eDevices || [];
+      }
+    }
+
+    // İki listeyi birleştir, tekrarları kaldır (id'ye göre)
+    const deviceMap = {};
+    [...(recentDevices || []), ...emergencyDevices].forEach(d => {
+      deviceMap[d.id] = d;
+    });
+    const devices = Object.values(deviceMap);
+
     if (!devices || devices.length === 0) return res.json({ data: [] });
 
     // Öğrenci bilgisi çek
@@ -118,13 +180,6 @@ exports.getLiveDevices = async (req, res) => {
       });
     }
 
-    // Acil durum alarmları — UUID veya email üzerinden eşleştir
-    const { data: emergencyAlerts } = await supabase
-      .from('alerts')
-      .select('details, alert_type')
-      .eq('is_resolved', false)
-      .in('alert_type', ['emergency_health', 'emergency_security']);
-
     // user_id (UUID) → emergency_type haritası
     // Eski kayıtlardaki email tabanlı details.user_id için de email → UUID çevirisi yap
     const emailToUserId = {};
@@ -134,11 +189,10 @@ exports.getLiveDevices = async (req, res) => {
     });
 
     const emergencyUserMap = {};
-    if (emergencyAlerts) {
-      emergencyAlerts.forEach(a => {
+    if (emergencyAlertsFetch) {
+      emergencyAlertsFetch.forEach(a => {
         const raw = a.details && a.details.user_id;
         if (!raw) return;
-        // UUID ise doğrudan kullan, email/student_id ise çevir
         const uid = emailToUserId[raw] || raw;
         emergencyUserMap[uid] = a.alert_type;
       });
