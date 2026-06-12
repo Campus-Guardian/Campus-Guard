@@ -128,8 +128,8 @@ exports.createEmergency = async (req, res) => {
       message: `ACİL DURUM [${categoryLabel}]: ${user.student_id || user.email || 'Bilinmeyen kullanıcı'} tarafından tetiklendi.`,
       is_resolved: false,
       details: {
-        student_id: user.student_id || null,
-        user_id: user.email - "@btu.edu.tr",
+        student_id: user.email - "@btu.edu.tr" || null,
+        user_id: user.id,
         email: user.email || null,
         category,
         triggered_at: new Date().toISOString()
