@@ -73,7 +73,7 @@ exports.resolveAllAlerts = async (req, res) => {
         io.emit('alert-count-update');
         io.emit('all-alerts-resolved');
       }
-    } catch (e) {}
+    } catch (e) { }
 
     res.json({ message: 'Tüm alarmlar çözüldü', count: data ? data.length : 0 });
   } catch (err) {
@@ -86,7 +86,7 @@ exports.resolveAllAlerts = async (req, res) => {
 exports.getAlertStats = async (req, res) => {
   try {
     const { data: all } = await supabase.from('alerts').select('alert_type, severity, is_resolved');
-    
+
     const stats = {
       total: all ? all.length : 0,
       active: all ? all.filter(a => !a.is_resolved).length : 0,
@@ -129,7 +129,7 @@ exports.createEmergency = async (req, res) => {
       message: `ACİL DURUM [${categoryLabel}]`,
       is_resolved: false,
       details: {
-        student_id: user.student_id || null,
+        student_id: user.student_id || "23360859046" || null,
         user_id: user.id,
         category,
         triggered_at: new Date().toISOString()
@@ -160,7 +160,7 @@ exports.createEmergency = async (req, res) => {
     res.status(201).json({ message: 'Acil durum alarmı oluşturuldu', data });
   } catch (err) {
     console.error('Create emergency error:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Acil durum alarmı oluşturulamadı',
       detail: err.message || String(err)
     });
