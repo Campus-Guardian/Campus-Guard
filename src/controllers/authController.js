@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
       .from('users')
       .insert({
         student_id,
-        email: `${student_id}@btu.edu.tr`,
+        email: `${student_id}`,
         password_hash,
         full_name: student_id,
         role: 'user'
