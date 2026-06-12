@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,15 +28,30 @@
       top: 0;
       z-index: 999;
     }
-    #emergencyBanner.visible { display: flex; }
-    @keyframes emergencyPulse {
-      0% { background-position: 0% 0%; }
-      100% { background-position: 200% 0%; }
+
+    #emergencyBanner.visible {
+      display: flex;
     }
-    .emergency-banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+
+    @keyframes emergencyPulse {
+      0% {
+        background-position: 0% 0%;
+      }
+
+      100% {
+        background-position: 200% 0%;
+      }
+    }
+
+    .emergency-banner-actions {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
     .emergency-banner-actions button {
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.5);
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.5);
       color: white;
       padding: 4px 14px;
       border-radius: 6px;
@@ -44,19 +60,25 @@
       font-weight: 600;
       transition: background 0.2s;
     }
-    .emergency-banner-actions button:hover { background: rgba(255,255,255,0.35); }
+
+    .emergency-banner-actions button:hover {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
     /* Pinned emergency alert in recent alerts */
     .alert-item.emergency-pinned {
       border-left: 4px solid #ef4444 !important;
-      background: rgba(239,68,68,0.06) !important;
+      background: rgba(239, 68, 68, 0.06) !important;
       order: -1;
     }
+
     /* Pinned emergency row in alerts table */
     tr.emergency-pinned td:first-child::before {
       content: '\1F4CC ';
     }
   </style>
 </head>
+
 <body>
   <!-- Alarm Sesi -->
   <audio id="alarmAudio" src="sounds/alarm.mp3" loop preload="auto"></audio>
@@ -100,7 +122,8 @@
       <header class="header">
         <h1>📊 Dashboard</h1>
         <div class="header-actions">
-          <button class="btn btn-outline btn-sm" onclick="downloadAlertsReport()" style="margin-right:12px; display:flex; align-items:center; gap:6px;">📥 CSV Raporu</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadAlertsReport()"
+            style="margin-right:12px; display:flex; align-items:center; gap:6px;">📥 CSV Raporu</button>
           <div class="notification-badge" onclick="window.location='alerts.html'">
             🔔
             <span class="count" id="alertCount">0</span>
@@ -150,20 +173,26 @@
             <button class="btn btn-sm btn-outline" onclick="refreshMap()">↻ Yenile</button>
           </div>
           <div class="card-body" style="padding:0">
-            <div class="map-container"><div id="dashboardMap"></div></div>
+            <div class="map-container">
+              <div id="dashboardMap"></div>
+            </div>
           </div>
         </div>
 
         <!-- dB Chart - full width, large -->
         <div class="card" style="margin-bottom:24px">
-          <div class="card-header"><h3>📈 Gürültü Seviyesi (Son 1 Saat)</h3></div>
+          <div class="card-header">
+            <h3>📈 Gürültü Seviyesi (Son 1 Saat)</h3>
+          </div>
           <div class="card-body"><canvas id="noiseChart" height="160"></canvas></div>
         </div>
 
         <!-- Alarm Chart + Recent Alerts side by side -->
         <div class="grid-2">
           <div class="card">
-            <div class="card-header"><h3>📊 Alarm Dağılımı</h3></div>
+            <div class="card-header">
+              <h3>📊 Alarm Dağılımı</h3>
+            </div>
             <div class="card-body"><canvas id="alertChart" height="260"></canvas></div>
           </div>
           <div class="card">
@@ -172,7 +201,9 @@
               <a href="alerts.html" class="btn btn-sm btn-outline">Tümü →</a>
             </div>
             <div class="card-body" style="padding:0" id="recentAlerts">
-              <div class="loading-spinner"><div class="spinner"></div> Yükleniyor...</div>
+              <div class="loading-spinner">
+                <div class="spinner"></div> Yükleniyor...
+              </div>
             </div>
           </div>
         </div>
@@ -190,4 +221,5 @@
   <script src="js/charts.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
+
 </html>

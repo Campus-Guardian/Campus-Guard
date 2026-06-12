@@ -34,22 +34,16 @@ async function loadStats() {
 }
 
 // ========= Acil Durum Ses Fonksiyonları =========
+// Ses fonksiyonları socket.js içinde window.playEmergencyAlarm / window.stopEmergencyAlarm olarak
+// tanımlanmıştır. Geriye dönük uyumluluk için burada sadece yönlendirme yapılıyor.
 function playAlarmSound() {
-  const audio = document.getElementById('alarmAudio');
-  if (audio) {
-    audio.currentTime = 0;
-    audio.play().catch(e => console.warn('Alarm sesi çalınamadı:', e));
-  }
+  if (typeof window.playEmergencyAlarm === 'function') window.playEmergencyAlarm();
 }
-
 function stopAlarmSound() {
-  const audio = document.getElementById('alarmAudio');
-  if (audio) {
-    audio.pause();
-    audio.currentTime = 0;
-  }
-  const btn = document.getElementById('muteAlarmBtn');
-  if (btn) btn.textContent = '🔇 Ses Kapatıldı';
+  if (typeof window.stopEmergencyAlarm === 'function') window.stopEmergencyAlarm();
+}
+function stopEmergencyAlarm() {
+  if (typeof window.stopEmergencyAlarm === 'function') window.stopEmergencyAlarm();
 }
 
 // ========= Acil Durum Banner =========
@@ -159,7 +153,7 @@ async function downloadAlertsReport() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `alerts_report_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `alerts_report_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

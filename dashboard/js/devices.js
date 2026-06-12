@@ -397,11 +397,26 @@ async function startSingleSim() {
     const maxPackets = parseInt(document.getElementById('simMaxPackets').value) || 0;
     const walkEffect = document.getElementById('simWalkEffect').checked;
 
+    // =====================================================
+    // DÜZELTME: Sensör değerlerini ŞIMDI anlık al ve sakla
+    // Böylece bu simülatör, sonraki slider değişikliklerinden
+    // veya sıfırlamalardan BAĞIMSIZ çalışır.
+    // =====================================================
+    const snapshotData = {
+      noise_level: parseFloat(document.getElementById('simNoise').value),
+      acceleration_x: parseFloat(document.getElementById('simAccX').value),
+      acceleration_y: parseFloat(document.getElementById('simAccY').value),
+      acceleration_z: parseFloat(document.getElementById('simAccZ').value),
+      speed: parseFloat(document.getElementById('simSpeed').value),
+      battery_level: parseInt(document.getElementById('simBattery').value),
+      network_type: '4g'
+    };
+
     if (activeSimulators[deviceId]) {
       stopSimulator(deviceId);
     }
 
-    // Create simulator configuration
+    // Create simulator configuration with FROZEN snapshot values
     const sim = {
       id: deviceId,
       name: deviceName,
@@ -412,14 +427,15 @@ async function startSingleSim() {
       maxPackets: maxPackets,
       packetsSent: 0,
       preset: 'custom',
+      // Her çağrıda sabit snapshot değerlerini döndür (DOM bağımsız)
       customData: () => ({
-        noise_level: parseFloat(document.getElementById('simNoise').value),
-        acceleration_x: parseFloat(document.getElementById('simAccX').value),
-        acceleration_y: parseFloat(document.getElementById('simAccY').value),
-        acceleration_z: parseFloat(document.getElementById('simAccZ').value),
-        speed: parseFloat(document.getElementById('simSpeed').value),
-        battery_level: parseInt(document.getElementById('simBattery').value),
-        network_type: '4g'
+        noise_level: snapshotData.noise_level,
+        acceleration_x: snapshotData.acceleration_x,
+        acceleration_y: snapshotData.acceleration_y,
+        acceleration_z: snapshotData.acceleration_z,
+        speed: snapshotData.speed,
+        battery_level: snapshotData.battery_level,
+        network_type: snapshotData.network_type
       })
     };
 
@@ -435,7 +451,7 @@ async function startSingleSim() {
     updateSimsUI();
     await loadDevices();
 
-    // Reset UI to default
+    // Reset UI to default (artık snapshot alındı, sıfırlama güvenli)
     if (simMarker) {
       simMap.removeLayer(simMarker);
       simMarker = null;
@@ -465,7 +481,7 @@ async function startSingleSim() {
 
     document.getElementById('simWalkEffect').checked = true;
 
-    showSimResult(`📡 ${deviceName} oluşturuldu ve simülasyon başlatıldı.`, 'ok');
+    showSimResult(`📡 ${deviceName} oluşturuldu | Gürültü: ${snapshotData.noise_level}dB | Hız: ${snapshotData.speed}km/h | Batarya: ${snapshotData.battery_level}%`, 'ok');
   } catch (err) {
     showSimResult('❌ Hata: ' + err.message, 'error');
   } finally {

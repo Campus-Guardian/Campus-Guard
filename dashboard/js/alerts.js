@@ -99,3 +99,15 @@ async function resolveAllAlerts() {
     alert('Hata: ' + err.message);
   }
 }
+
+async function deleteResolvedAlerts() {
+  if (!confirm('Çözülmüş tüm alarmları kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) return;
+  try {
+    const res = await apiRequest('/alerts/resolved', { method: 'DELETE' });
+    alert(`✅ ${res.count || 0} adet çözülmüş alarm silindi.`);
+    loadAlerts();
+    loadAlertStats();
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}

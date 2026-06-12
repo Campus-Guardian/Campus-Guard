@@ -33,7 +33,7 @@ function initDashboardMap() {
   loadMapData();
   // Refresh every 15 seconds
   setInterval(loadMapData, 15000);
-  
+
   // Set up socket listeners for zone alerts dynamic coloring
   setupMapSocketListeners();
 }
@@ -49,7 +49,7 @@ async function loadMapData() {
       zonesRes.data.forEach(zone => {
         if (zone.polygon && zone.polygon.length >= 3) {
           const typeLabel = { normal: 'Normal', restricted: 'Kısıtlı', danger: 'Tehlikeli' };
-          
+
           // Determine color based on active alert counter
           let currentColor = zone.color || '#3b82f6';
           if (zoneAlertCounters[zone.id] !== undefined && zoneAlertCounters[zone.id] < 5) {
@@ -57,7 +57,7 @@ async function loadMapData() {
           } else if (zoneAlertCounters[zone.id] === undefined) {
             zoneAlertCounters[zone.id] = 5; // Default to clean state
           }
-          
+
           const poly = L.polygon(zone.polygon, {
             color: currentColor,
             fillColor: currentColor,
@@ -65,7 +65,7 @@ async function loadMapData() {
             weight: 2
           }).addTo(dashboardMap);
           poly.bindPopup(`<b>${zone.name}</b><br>Tip: ${typeLabel[zone.type] || zone.type}<br>Kapasite: ${zone.max_capacity}`);
-          
+
           poly.defaultColor = zone.color || '#3b82f6';
           poly.zoneType = zone.type;
           zonePolygons[zone.id] = poly;
@@ -85,7 +85,7 @@ async function loadMapData() {
           let markerColor = '#3b82f6';  // varsayılan: mavi
           let fillColor = '#60a5fa';
           const alerts = dev.active_alerts || [];
-          
+
           if (alerts.some(a => a.severity === 'critical')) {
             markerColor = '#ef4444'; fillColor = '#f87171'; // kırmızı
           } else if (alerts.some(a => a.type && a.type.includes('noise'))) {
@@ -123,12 +123,12 @@ async function loadMapData() {
 
 function updateDeviceOnMap(data) {
   if (!dashboardMap || !data.latitude || !data.longitude) return;
-  
+
   // Determine marker color in real-time based on active packet alerts
   const alerts = data.active_alerts || [];
   let markerColor = '#3b82f6';  // default blue
   let fillColor = '#60a5fa';
-  
+
   if (alerts.length > 0) {
     if (alerts.some(a => a.severity === 'critical')) {
       markerColor = '#ef4444'; fillColor = '#f87171'; // red
@@ -139,7 +139,7 @@ function updateDeviceOnMap(data) {
     }
   }
 
-  const popupContent = 
+  const popupContent =
     `<b>Öğrenci No: ${data.student_id || '-'}</b><br>` +
     `Gürültü: ${data.noise_level ? data.noise_level.toFixed(1) + ' dB' : '-'}<br>` +
     `Hız: ${data.speed ? data.speed.toFixed(1) + ' km/h' : '-'}<br>` +
@@ -164,27 +164,27 @@ function playAlarmSound() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
-    
+
     // Play a high attention dual-tone siren
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const gainNode = ctx.createGain();
-    
+
     osc1.type = 'sawtooth';
     osc1.frequency.setValueAtTime(880, ctx.currentTime);
     osc1.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.4);
-    
+
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(440, ctx.currentTime);
     osc2.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.4);
 
     gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-    
+
     osc1.connect(gainNode);
     osc2.connect(gainNode);
     gainNode.connect(ctx.destination);
-    
+
     osc1.start();
     osc2.start();
     osc1.stop(ctx.currentTime + 0.8);
@@ -199,7 +199,7 @@ function setupMapSocketListeners() {
     const checkSocket = setInterval(() => {
       if (window.socket) {
         clearInterval(checkSocket);
-        
+
         window.socket.on('new-alert', (alert) => {
           // Play warning siren sound
           playAlarmSound();

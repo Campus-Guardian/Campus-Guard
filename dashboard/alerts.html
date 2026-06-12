@@ -30,17 +30,25 @@
         <h1>🔔 Alarm Yönetimi</h1>
         <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
           <button class="btn btn-outline btn-sm" onclick="resolveAllAlerts()" style="border-color:var(--danger); color:var(--danger)">✓ Tümünü Çöz</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteResolvedAlerts()" title="Çözülmüş tüm alarmları kalıcı olarak sil">🗑️ Çözülmüşleri Sil</button>
           <div class="filters">
             <select id="filterType" onchange="loadAlerts()">
               <option value="">Tüm Tipler</option>
-              <option value="noise_warning">Gürültü (Uyarı)</option>
-              <option value="noise_critical">Gürültü (Kritik)</option>
-              <option value="crowd_warning">Kalabalık (Uyarı)</option>
-              <option value="crowd_critical">Kalabalık (Kritik)</option>
-              <option value="restricted_zone">Kısıtlı Bölge</option>
-              <option value="danger_zone">Tehlikeli Bölge</option>
-              <option value="abnormal_motion">Anormal Hareket</option>
-              <option value="speed_violation">Hız İhlali</option>
+              <optgroup label="─── Acil Durum ───">
+                <option value="emergency_health">🏥 Acil Sağlık</option>
+                <option value="emergency_security">🔒 Acil Güvenlik</option>
+              </optgroup>
+              <optgroup label="─── Diğer ───">
+                <option value="noise_warning">Gürültü (Uyarı)</option>
+                <option value="noise_critical">Gürültü (Kritik)</option>
+                <option value="crowd_warning">Kalabalık (Uyarı)</option>
+                <option value="crowd_critical">Kalabalık (Kritik)</option>
+                <option value="restricted_zone">Kısıtlı Bölge</option>
+                <option value="danger_zone">Tehlikeli Bölge</option>
+                <option value="abnormal_motion">Anormal Hareket</option>
+                <option value="speed_violation">Hız İhlali</option>
+                <option value="inactivity">Hareketsizlik</option>
+              </optgroup>
             </select>
             <select id="filterSeverity" onchange="loadAlerts()">
               <option value="">Tüm Seviyeler</option>
@@ -94,6 +102,8 @@
     </main>
   </div>
 
+  <!-- Acil Durum Ses -->
+  <audio id="alarmAudio" src="sounds/alarm.mp3" loop preload="auto"></audio>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/socket.js"></script>

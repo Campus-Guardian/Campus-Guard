@@ -166,3 +166,22 @@ exports.createEmergency = async (req, res) => {
     });
   }
 };
+
+// Çözülmüş alarmları kalıcı olarak sil
+exports.deleteResolvedAlerts = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('alerts')
+      .delete()
+      .eq('is_resolved', true)
+      .select('id');
+
+    if (error) throw error;
+
+    res.json({ message: 'Çözülmüş alarmlar silindi', count: data ? data.length : 0 });
+  } catch (err) {
+    console.error('Delete resolved alerts error:', err);
+    res.status(500).json({ error: 'Çözülmüş alarmlar silinemedi' });
+  }
+};
+
