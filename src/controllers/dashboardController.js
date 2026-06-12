@@ -96,7 +96,7 @@ exports.getLiveDevices = async (req, res) => {
     if (userIds.length > 0) {
       const { data: users } = await supabase
         .from('users')
-        .select('id, student_id, full_name')
+        .select('id, student_id, full_name, email')
         .in('id', userIds);
       if (users) {
         users.forEach(u => { usersMap[u.id] = u; });
@@ -118,19 +118,29 @@ exports.getLiveDevices = async (req, res) => {
       });
     }
 
-    // Acil durum alarmları (device_id olmayabilir, user_id ile eşleştirilir)
+    // Acil durum alarmları — UUID veya email üzerinden eşleştir
     const { data: emergencyAlerts } = await supabase
       .from('alerts')
       .select('details, alert_type')
       .eq('is_resolved', false)
       .in('alert_type', ['emergency_health', 'emergency_security']);
 
-    // user_id → has_emergency haritası
+    // user_id (UUID) → emergency_type haritası
+    // Eski kayıtlardaki email tabanlı details.user_id için de email → UUID çevirisi yap
+    const emailToUserId = {};
+    Object.values(usersMap).forEach(u => {
+      if (u.email) emailToUserId[u.email] = u.id;
+      if (u.student_id) emailToUserId[u.student_id] = u.id;
+    });
+
     const emergencyUserMap = {};
     if (emergencyAlerts) {
       emergencyAlerts.forEach(a => {
-        const uid = a.details && a.details.user_id;
-        if (uid) emergencyUserMap[uid] = a.alert_type;
+        const raw = a.details && a.details.user_id;
+        if (!raw) return;
+        // UUID ise doğrudan kullan, email/student_id ise çevir
+        const uid = emailToUserId[raw] || raw;
+        emergencyUserMap[uid] = a.alert_type;
       });
     }
 

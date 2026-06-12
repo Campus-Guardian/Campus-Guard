@@ -129,7 +129,7 @@ exports.createEmergency = async (req, res) => {
       is_resolved: false,
       details: {
         student_id: user.email || null,
-        user_id: user.email,
+        user_id: user.id,          // ← UUID (dashboardController ile eşleşmesi için)
         email: user.email || null,
         category,
         triggered_at: new Date().toISOString()
