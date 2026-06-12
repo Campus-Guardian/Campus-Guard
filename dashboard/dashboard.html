@@ -77,15 +77,31 @@
       content: '\1F4CC ';
     }
 
-    /* Haritada acil durum markerı için nabız animasyonu */
-    @keyframes emergencyMarkerPulse {
-      0%   { opacity: 1;   stroke-width: 3px; }
-      50%  { opacity: 0.5; stroke-width: 6px; }
-      100% { opacity: 1;   stroke-width: 3px; }
+    /* ===== Haritada Acil Durum — Animasyonlu Kırmızı Halka ===== */
+    @keyframes emergencyRipple {
+      0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.8; }
+      100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; }
     }
-    .leaflet-interactive.emergency-pulse {
-      animation: emergencyMarkerPulse 1s ease-in-out infinite;
+
+    /* Leaflet marker'ın üzerine konan DOM overlay halkası */
+    .emergency-ring-overlay {
+      position: absolute;
+      pointer-events: none;
+      z-index: 650;
     }
+    .emergency-ring-overlay .ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 3px solid #ef4444;
+      background: transparent;
+      animation: emergencyRipple 1.6s ease-out infinite;
+    }
+    .emergency-ring-overlay .ring:nth-child(2) { animation-delay: 0.5s; }
+    .emergency-ring-overlay .ring:nth-child(3) { animation-delay: 1.0s; }
   </style>
 </head>
 
