@@ -14,7 +14,7 @@ const authenticate = async (req, res, next) => {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, full_name, role, is_active')
+      .select('id, student_id, email, full_name, role, is_active')
       .eq('id', decoded.userId)
       .single();
 
