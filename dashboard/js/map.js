@@ -245,6 +245,26 @@ function setupMapSocketListeners() {
           // Play warning siren sound
           playAlarmSound();
 
+          // Animasyonlu kırmızı daire — cihaz marker'ı varsa onun konumuna, yoksa alert.location'a bak
+          const tryShowPulse = (lat, lng) => {
+            if (lat && lng) showAlertPulseOnMap(lat, lng);
+          };
+
+          // 1) alert içinde konum bilgisi var mı?
+          if (alert.latitude && alert.longitude) {
+            tryShowPulse(alert.latitude, alert.longitude);
+          } else if (alert.device_id && deviceMarkers[alert.device_id]) {
+            // 2) cihazın mevcut marker'ından al
+            const pos = deviceMarkers[alert.device_id].getLatLng();
+            tryShowPulse(pos.lat, pos.lng);
+          } else {
+            // 3) Tüm cihaz marker'larına göster (cihaz bilgisi yoksa)
+            Object.values(deviceMarkers).forEach(m => {
+              const pos = m.getLatLng();
+              tryShowPulse(pos.lat, pos.lng);
+            });
+          }
+
           if ((alert.alert_type === 'restricted_zone' || alert.alert_type === 'danger_zone') && alert.zone_id) {
             zoneAlertCounters[alert.zone_id] = 0;
             const poly = zonePolygons[alert.zone_id];
@@ -254,9 +274,16 @@ function setupMapSocketListeners() {
           }
         });
 
-        // Acil durum alarmı → haritayı hemen yenile (kırmızı marker görünsün)
-        window.socket.on('emergency-alert', () => {
+        // Acil durum alarmı → haritayı hemen yenile + nabız animasyonu
+        window.socket.on('emergency-alert', (alert) => {
           loadMapData();
+          // Acil durum için de kırmızı nabız dairesi göster
+          if (alert && alert.latitude && alert.longitude) {
+            showAlertPulseOnMap(alert.latitude, alert.longitude);
+          } else if (alert && alert.device_id && deviceMarkers[alert.device_id]) {
+            const pos = deviceMarkers[alert.device_id].getLatLng();
+            showAlertPulseOnMap(pos.lat, pos.lng);
+          }
         });
 
         window.socket.on('sensor-update', (data) => {
@@ -280,6 +307,54 @@ function setupMapSocketListeners() {
       }
     }, 100);
   }
+}
+
+// ========= Alarm Nabız Animasyonu =========
+let alertPulseCircles = [];
+
+function showAlertPulseOnMap(lat, lng) {
+  if (!dashboardMap) return;
+
+  // CSS animasyonu bir kere ekle
+  if (!document.getElementById('_pulseCircleStyle')) {
+    const style = document.createElement('style');
+    style.id = '_pulseCircleStyle';
+    style.innerHTML = `
+      @keyframes leaflet-pulse-ring {
+        0%   { transform: scale(0.4); opacity: 0.9; }
+        80%  { transform: scale(2.8); opacity: 0; }
+        100% { transform: scale(2.8); opacity: 0; }
+      }
+      .leaflet-pulse-circle {
+        border-radius: 50%;
+        border: 4px solid #ef4444;
+        background: rgba(239,68,68,0.25);
+        animation: leaflet-pulse-ring 1.2s cubic-bezier(0.215,0.61,0.355,1) infinite;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 3 iç içe pulsing daire (farklı gecikmelerle)
+  const circles = [0, 400, 800].map(delay => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="leaflet-pulse-circle" style="width:60px;height:60px;animation-delay:${delay}ms"></div>`,
+      iconSize: [60, 60],
+      iconAnchor: [30, 30]
+    });
+    const m = L.marker([lat, lng], { icon, zIndexOffset: -1000, interactive: false }).addTo(dashboardMap);
+    return m;
+  });
+
+  alertPulseCircles.push(...circles);
+
+  // 6 saniye sonra kaldır
+  setTimeout(() => {
+    circles.forEach(c => { try { dashboardMap.removeLayer(c); } catch (_) {} });
+    alertPulseCircles = alertPulseCircles.filter(c => !circles.includes(c));
+  }, 6000);
 }
 
 function refreshMap() {
